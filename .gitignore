@@ -1,0 +1,53 @@
+--- Operating System & IDEs ---
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+--- Python (Backend) ---
+
+pycache/
+*.py[cod]
+*$py.class
+venv/
+env/
+.env
+.pytest_cache/
+
+--- Node.js & React (Frontend) ---
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.eslintcache
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+--- Datasets (Too large for Git) ---
+
+*.csv
+*.xlsx
+*.xls
+
+--- Machine Learning Models ---
+
+(Uncomment the line below if your models are >100MB)
+
+*.joblib
+
+*.pkl
+
+*.h5
+
+--- Archives & Junk ---
+
+archive/
+catboost_info/
