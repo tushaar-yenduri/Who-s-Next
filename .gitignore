@@ -37,15 +37,6 @@ build/
 *.xlsx
 *.xls
 
---- Machine Learning Models ---
-
-(Uncomment the line below if your models are >100MB)
-
-*.joblib
-
-*.pkl
-
-*.h5
 
 --- Archives & Junk ---
 
