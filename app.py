@@ -24,6 +24,11 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
         color: #1e293b;
+        background-color: #f8fafc; /* Reverted to clean slate/white */
+    }
+    
+    /* Main container background */
+    .stApp {
         background-color: #f8fafc;
     }
     
@@ -43,6 +48,7 @@ st.markdown("""
         border: 1px solid rgba(0,0,0,0.05);
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         transition: transform 0.2s;
+        background-color: white;
     }
     .kpi-card:hover { transform: translateY(-2px); }
     
@@ -279,7 +285,6 @@ if view_mode == "Employee Profile":
         c_reset, c_save = st.columns(2)
         with c_reset:
             if st.button("Reset Defaults"):
-                # Reset logic would go here
                 pass
         with c_save:
             st.button("Save Report", disabled=True)
@@ -341,7 +346,7 @@ if view_mode == "Employee Profile":
                     go.Bar(name='This Employee', x=['Income'], y=[new_income], marker_color='#6366f1'),
                     go.Bar(name='Company Avg', x=['Income'], y=[avg_inc], marker_color='#cbd5e1')
                 ])
-                fig_inc.update_layout(title_text="Monthly Income", barmode='group', height=200, margin=dict(l=20, r=20, t=30, b=20))
+                fig_inc.update_layout(title_text="Monthly Income", barmode='group', height=200, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_inc, use_container_width=True)
                 
             with row_bench[1]:
@@ -349,7 +354,7 @@ if view_mode == "Employee Profile":
                     go.Bar(name='This Employee', x=['Tenure'], y=[prediction_payload['YearsAtCompany']], marker_color='#10b981'),
                     go.Bar(name='Company Avg', x=['Tenure'], y=[avg_tenure], marker_color='#cbd5e1')
                 ])
-                fig_ten.update_layout(title_text="Tenure (Years)", barmode='group', height=200, margin=dict(l=20, r=20, t=30, b=20))
+                fig_ten.update_layout(title_text="Tenure (Years)", barmode='group', height=200, margin=dict(l=20, r=20, t=30, b=20), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_ten, use_container_width=True)
 
             # 4. RADAR & DRIVERS
@@ -360,11 +365,12 @@ if view_mode == "Employee Profile":
                 cats = ['Job Sat.', 'Env Sat.', 'Involvement', 'Performance']
                 vals = [new_js, new_es, new_ji, 3]
                 
+                # FIXED SCATTERPOLAR SYNTAX
                 fig_rad = go.Figure(data=go.Scatterpolar(
                     r=vals, theta=cats, fill='toself', 
-                    line={'color': '#6366f1'}, fillcolor='rgba(99, 102, 241, 0.3)'
+                    line=dict(color='#6366f1'), fillcolor='rgba(99, 102, 241, 0.3)'
                 ))
-                fig_rad.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 4])), showlegend=False, height=250, margin=dict(t=20, b=20, l=40, r=40))
+                fig_rad.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 4])), showlegend=False, height=250, margin=dict(t=20, b=20, l=40, r=40), paper_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_rad, use_container_width=True)
                 
             with col_driver:
@@ -477,7 +483,7 @@ elif view_mode == "Company Overview":
             
             if not dept_counts.empty:
                 fig_bar = px.bar(dept_counts, x='Department', y='Count', color='Count', color_continuous_scale='Reds')
-                fig_bar.update_layout(xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=350, margin=dict(l=0,r=0,t=0,b=0))
+                fig_bar.update_layout(xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=350, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
                 st.plotly_chart(fig_bar, use_container_width=True)
             else:
                 st.success("No attrition in selected group.")
@@ -502,6 +508,8 @@ elif view_mode == "Company Overview":
                 yaxis_title="Monthly Income", 
                 height=350,
                 margin=dict(l=0,r=0,t=0,b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)'
             )
             st.plotly_chart(fig_scat, use_container_width=True)
