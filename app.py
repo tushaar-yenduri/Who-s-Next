@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 # ---------------------------------------------------------
 # 1. PAGE CONFIG & STYLING
 # ---------------------------------------------------------
+# Streamlit Page Config
 st.set_page_config(
     page_title="Who's Next | HR Analytics",
     page_icon="🚀",
