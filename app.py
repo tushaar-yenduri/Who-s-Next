@@ -98,9 +98,15 @@ def load_assets():
             model_dir = p
             break
             
+    # Default return values
+    loaded_models = {}
+    features = []
+    df = pd.DataFrame()
+
     if not model_dir:
         st.error("Could not find model files. Ensure they are in 'backend/' or the root folder.")
-        return {}, [], pd.DataFrame()
+        # Return empty/default to avoid immediate crash
+        return loaded_models, features, df
 
     model_paths = {
         "Logistic Regression": os.path.join(model_dir, "model_logreg_best.joblib"),
@@ -108,7 +114,6 @@ def load_assets():
         "Gradient Boosting": os.path.join(model_dir, "model_gb_best.joblib"),
     }
     
-    loaded_models = {}
     for name, path in model_paths.items():
         if os.path.exists(path):
             loaded_models[name] = joblib.load(path)
@@ -117,11 +122,15 @@ def load_assets():
     features = joblib.load(cols_path) if os.path.exists(cols_path) else []
 
     csv_path = os.path.join(model_dir, "WA_Fn-UseC_-HR-Employee-Attrition.csv")
-    df = pd.read_csv(csv_path) if os.path.exists(csv_path) else pd.DataFrame()
-    
-    if not df.empty and 'EmployeeNumber' not in df.columns:
-        df['EmployeeNumber'] = df.index + 1
-
+    if os.path.exists(csv_path):
+        try:
+            df = pd.read_csv(csv_path)
+            # Ensure EmployeeNumber exists
+            if not df.empty and 'EmployeeNumber' not in df.columns:
+                df['EmployeeNumber'] = df.index + 1
+        except Exception as e:
+            st.error(f"Error loading CSV: {e}")
+            
     return loaded_models, features, df
 
 models, feature_cols, df_full = load_assets()
@@ -141,12 +150,18 @@ def prepare_input(data_dict, feature_cols):
     df_enc = pd.get_dummies(df_input, columns=cat_cols)
     
     # Align columns
-    for col in feature_cols:
-        if col not in df_enc.columns:
-            df_enc[col] = 0
-    return df_enc[feature_cols]
+    if feature_cols:
+        for col in feature_cols:
+            if col not in df_enc.columns:
+                df_enc[col] = 0
+        return df_enc[feature_cols]
+    return df_enc # Fallback if feature_cols not loaded
 
 def predict(model_name, input_data):
+    # Safety check
+    if not feature_cols or not models:
+        return 0.5 # Default probability if models missing
+        
     X = prepare_input(input_data, feature_cols)
     prob = 0.0
     
@@ -163,19 +178,22 @@ def predict(model_name, input_data):
         if probs:
             prob = np.mean(probs)
     elif model_name in models:
-        prob = models[model_name].predict_proba(X)[0, 1]
+        try:
+            prob = models[model_name].predict_proba(X)[0, 1]
+        except:
+            prob = 0.5 # Error fallback
     
     return prob
 
 def get_risk_drivers(data, prob):
     drivers = []
-    if data['OverTime'] == "Yes":
+    if data.get('OverTime') == "Yes":
         drivers.append({"name": "Overtime", "impact": "High", "desc": "Working overtime significantly increases burnout risk."})
-    if data['MonthlyIncome'] < 3000: # Example threshold
+    if data.get('MonthlyIncome', 0) < 3000: # Example threshold
         drivers.append({"name": "Income", "impact": "High", "desc": "Income is in the lower percentile."})
-    if data['YearsAtCompany'] < 2 and data['TotalWorkingYears'] > 5:
+    if data.get('YearsAtCompany', 0) < 2 and data.get('TotalWorkingYears', 0) > 5:
         drivers.append({"name": "Job Hopping", "impact": "Medium", "desc": "History of short tenure suggests flight risk."})
-    if data['EnvironmentSatisfaction'] < 2 or data['JobSatisfaction'] < 2:
+    if data.get('EnvironmentSatisfaction', 3) < 2 or data.get('JobSatisfaction', 3) < 2:
         drivers.append({"name": "Satisfaction", "impact": "Critical", "desc": "Low reported satisfaction scores."})
     if data.get('DistanceFromHome', 0) > 20:
         drivers.append({"name": "Commute", "impact": "Medium", "desc": "Long commute distance (>20 miles)."})
@@ -195,20 +213,32 @@ with st.sidebar:
     
     if view_mode == "Employee Profile":
         st.subheader("Prediction Model")
+        # Only show available models
+        avail_options = ["Ensemble (All Models)"]
+        if models:
+            avail_options = list(models.keys()) + ["Ensemble (All Models)"]
+            
         model_choice = st.radio("Select Model", 
-            ["Logistic Regression", "Random Forest", "Gradient Boosting", "Ensemble (All Models)"],
+            avail_options,
             label_visibility="collapsed"
         )
     
     elif view_mode == "Company Overview":
         st.subheader("Data Filters")
         
-        # Cascading Filters
-        all_depts = sorted(df_full['Department'].unique())
-        sel_depts = st.multiselect("Departments", all_depts, default=all_depts)
-        
-        avail_roles = sorted(df_full[df_full['Department'].isin(sel_depts)]['JobRole'].unique())
-        sel_roles = st.multiselect("Job Roles", avail_roles, default=avail_roles)
+        # Cascading Filters - Safe check for empty df
+        if not df_full.empty:
+            all_depts = sorted(df_full['Department'].dropna().unique())
+            sel_depts = st.multiselect("Departments", all_depts, default=all_depts)
+            
+            # Filter df first to get available roles
+            mask = df_full['Department'].isin(sel_depts)
+            avail_roles = sorted(df_full[mask]['JobRole'].dropna().unique())
+            sel_roles = st.multiselect("Job Roles", avail_roles, default=avail_roles)
+        else:
+            sel_depts = []
+            sel_roles = []
+            st.warning("Data not loaded.")
 
 # ---------------------------------------------------------
 # 5. VIEW: EMPLOYEE PROFILE
@@ -261,7 +291,12 @@ if view_mode == "Employee Profile":
         
         current_data = st.session_state.form_data
         
-        new_dept = st.selectbox("Department", ["Sales", "Research & Development", "Human Resources"], index=["Sales", "Research & Development", "Human Resources"].index(current_data['Department']))
+        # Safe Department Index
+        dept_options = ["Sales", "Research & Development", "Human Resources"]
+        curr_dept = current_data['Department']
+        dept_idx = dept_options.index(curr_dept) if curr_dept in dept_options else 0
+        
+        new_dept = st.selectbox("Department", dept_options, index=dept_idx)
         
         c1, c2 = st.columns(2)
         with c1:
@@ -337,9 +372,9 @@ if view_mode == "Employee Profile":
             st.markdown("#### 📊 Peer Benchmark")
             row_bench = st.columns(2)
             
-            # Global Avgs
-            avg_inc = df_full['MonthlyIncome'].mean()
-            avg_tenure = df_full['YearsAtCompany'].mean()
+            # Global Avgs - Safe calc
+            avg_inc = df_full['MonthlyIncome'].mean() if not df_full.empty and 'MonthlyIncome' in df_full.columns else 6500
+            avg_tenure = df_full['YearsAtCompany'].mean() if not df_full.empty and 'YearsAtCompany' in df_full.columns else 7
             
             with row_bench[0]:
                 fig_inc = go.Figure(data=[
@@ -428,88 +463,110 @@ if view_mode == "Employee Profile":
 elif view_mode == "Company Overview":
     
     # --- FILTERS LOGIC ---
-    # Apply filters to df_full
-    filtered_df = df_full[
-        (df_full['Department'].isin(sel_depts)) &
-        (df_full['JobRole'].isin(sel_roles))
-    ]
-    
-    # 0. Empty State
-    if filtered_df.empty:
-        st.warning("No data matches the selected filters.")
+    if df_full.empty:
+        st.warning("Dataset not loaded. Please upload 'WA_Fn-UseC_-HR-Employee-Attrition.csv'.")
     else:
-        # --- 1. KPI CARDS ---
-        total = len(filtered_df)
-        att_count = len(filtered_df[filtered_df['Attrition'] == 'Yes'])
-        att_rate = (att_count / total) * 100
-        avg_sat = filtered_df['JobSatisfaction'].mean()
-        avg_inc_kpi = filtered_df['MonthlyIncome'].mean()
+        # Apply filters to df_full
+        filtered_df = df_full[
+            (df_full['Department'].isin(sel_depts)) &
+            (df_full['JobRole'].isin(sel_roles))
+        ]
         
-        # HTML Layout for cards
-        kpi_html = f"""
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
-            <div class="kpi-card kpi-pink">
-                <div class="kpi-label" style="color: #be185d;">Total Employees</div>
-                <div class="kpi-value">{total}</div>
-                <div class="kpi-sub" style="color: #be185d;">Active Workforce</div>
-            </div>
-            <div class="kpi-card kpi-yellow">
-                <div class="kpi-label" style="color: #a16207;">Attrition Rate</div>
-                <div class="kpi-value">{att_rate:.1f}%</div>
-                <div class="kpi-sub" style="color: #a16207;">Current Rate</div>
-            </div>
-            <div class="kpi-card kpi-blue">
-                <div class="kpi-label" style="color: #1d4ed8;">Avg Satisfaction</div>
-                <div class="kpi-value">{avg_sat:.1f}/4</div>
-                <div class="kpi-sub" style="color: #1d4ed8;">Environment Score</div>
-            </div>
-            <div class="kpi-card kpi-purple">
-                <div class="kpi-label" style="color: #7e22ce;">Avg Income</div>
-                <div class="kpi-value">${avg_inc_kpi:,.0f}</div>
-                <div class="kpi-sub" style="color: #7e22ce;">Monthly Base</div>
-            </div>
-        </div>
-        """
-        st.markdown(kpi_html, unsafe_allow_html=True)
-        
-        # --- 2. CHARTS ---
-        c1, c2 = st.columns(2)
-        
-        with c1:
-            st.markdown("##### Attrition by Department")
-            # Prepare data
-            dept_counts = filtered_df[filtered_df['Attrition'] == 'Yes']['Department'].value_counts().reset_index()
-            dept_counts.columns = ['Department', 'Count']
+        # 0. Empty State
+        if filtered_df.empty:
+            st.warning("No data matches the selected filters.")
+        else:
+            # --- 1. KPI CARDS ---
+            total = len(filtered_df)
             
-            if not dept_counts.empty:
-                fig_bar = px.bar(dept_counts, x='Department', y='Count', color='Count', color_continuous_scale='Reds')
-                fig_bar.update_layout(xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=350, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-                st.plotly_chart(fig_bar, use_container_width=True)
+            # Safety checks for columns
+            if 'Attrition' in filtered_df.columns:
+                att_count = len(filtered_df[filtered_df['Attrition'] == 'Yes'])
+                att_rate = (att_count / total) * 100
             else:
-                st.success("No attrition in selected group.")
+                att_rate = 0.0
                 
-        with c2:
-            st.markdown("##### Flight Risk: Tenure vs Income")
-            # Simple Scatter: No bubble size, clear colors
-            # Limit points for performance if dataset large
-            scatter_data = filtered_df.sample(min(500, len(filtered_df)))
+            if 'JobSatisfaction' in filtered_df.columns:
+                avg_sat = filtered_df['JobSatisfaction'].mean()
+            else:
+                avg_sat = 0.0
+                
+            if 'MonthlyIncome' in filtered_df.columns:
+                avg_inc_kpi = filtered_df['MonthlyIncome'].mean()
+            else:
+                avg_inc_kpi = 0.0
             
-            fig_scat = px.scatter(
-                scatter_data, 
-                x="YearsAtCompany", 
-                y="MonthlyIncome", 
-                color="Attrition",
-                color_discrete_map={"Yes": "#ef4444", "No": "#10b981"},
-                opacity=0.6,
-                hover_data=["JobRole"]
-            )
-            fig_scat.update_layout(
-                xaxis_title="Tenure (Years)", 
-                yaxis_title="Monthly Income", 
-                height=350,
-                margin=dict(l=0,r=0,t=0,b=0),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            st.plotly_chart(fig_scat, use_container_width=True)
+            # HTML Layout for cards
+            kpi_html = f"""
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+                <div class="kpi-card kpi-pink">
+                    <div class="kpi-label" style="color: #be185d;">Total Employees</div>
+                    <div class="kpi-value">{total}</div>
+                    <div class="kpi-sub" style="color: #be185d;">Active Workforce</div>
+                </div>
+                <div class="kpi-card kpi-yellow">
+                    <div class="kpi-label" style="color: #a16207;">Attrition Rate</div>
+                    <div class="kpi-value">{att_rate:.1f}%</div>
+                    <div class="kpi-sub" style="color: #a16207;">Current Rate</div>
+                </div>
+                <div class="kpi-card kpi-blue">
+                    <div class="kpi-label" style="color: #1d4ed8;">Avg Satisfaction</div>
+                    <div class="kpi-value">{avg_sat:.1f}/4</div>
+                    <div class="kpi-sub" style="color: #1d4ed8;">Environment Score</div>
+                </div>
+                <div class="kpi-card kpi-purple">
+                    <div class="kpi-label" style="color: #7e22ce;">Avg Income</div>
+                    <div class="kpi-value">${avg_inc_kpi:,.0f}</div>
+                    <div class="kpi-sub" style="color: #7e22ce;">Monthly Base</div>
+                </div>
+            </div>
+            """
+            st.markdown(kpi_html, unsafe_allow_html=True)
+            
+            # --- 2. CHARTS ---
+            c1, c2 = st.columns(2)
+            
+            with c1:
+                st.markdown("##### Attrition by Department")
+                if 'Attrition' in filtered_df.columns and 'Department' in filtered_df.columns:
+                    # Prepare data
+                    dept_counts = filtered_df[filtered_df['Attrition'] == 'Yes']['Department'].value_counts().reset_index()
+                    dept_counts.columns = ['Department', 'Count']
+                    
+                    if not dept_counts.empty:
+                        fig_bar = px.bar(dept_counts, x='Department', y='Count', color='Count', color_continuous_scale='Reds')
+                        fig_bar.update_layout(xaxis_title=None, yaxis_title=None, coloraxis_showscale=False, height=350, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    else:
+                        st.success("No attrition in selected group.")
+                else:
+                    st.warning("Missing required columns for chart.")
+                    
+            with c2:
+                st.markdown("##### Flight Risk: Tenure vs Income")
+                if 'YearsAtCompany' in filtered_df.columns and 'MonthlyIncome' in filtered_df.columns and 'Attrition' in filtered_df.columns:
+                    # Simple Scatter: No bubble size, clear colors
+                    # Limit points for performance if dataset large
+                    scatter_data = filtered_df.sample(min(500, len(filtered_df)))
+                    
+                    fig_scat = px.scatter(
+                        scatter_data, 
+                        x="YearsAtCompany", 
+                        y="MonthlyIncome", 
+                        color="Attrition",
+                        color_discrete_map={"Yes": "#ef4444", "No": "#10b981"},
+                        opacity=0.6,
+                        hover_data=["JobRole"]
+                    )
+                    fig_scat.update_layout(
+                        xaxis_title="Tenure (Years)", 
+                        yaxis_title="Monthly Income", 
+                        height=350,
+                        margin=dict(l=0,r=0,t=0,b=0),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        paper_bgcolor='rgba(0,0,0,0)', 
+                        plot_bgcolor='rgba(0,0,0,0)'
+                    )
+                    st.plotly_chart(fig_scat, use_container_width=True)
+                else:
+                    st.warning("Missing required columns for chart.")
