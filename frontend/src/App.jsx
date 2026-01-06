@@ -3,35 +3,35 @@ import axios from 'axios';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  ScatterChart, Scatter, Legend, CartesianGrid
+  ScatterChart, Scatter, ZAxis, CartesianGrid, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts';
 import { 
   User, Activity, Search, LayoutDashboard, Settings, 
-  AlertTriangle, CheckCircle, Filter, RotateCcw, Printer, ArrowLeft, BarChart2
+  AlertTriangle, CheckCircle, Filter, RotateCcw, Printer, 
+  ArrowLeft, BarChart2, Menu, X, FileText, Users, Briefcase, DollarSign
 } from 'lucide-react';
 
-// --- CONFIGURATION: DEPARTMENT RELATIONS ---
+// --- CONFIGURATION ---
 const DEPT_ROLE_MAP = {
   'Human Resources': ['Human Resources', 'Manager'], 
   'Research & Development': ['Research Scientist', 'Laboratory Technician', 'Manufacturing Director', 'Healthcare Representative', 'Research Director', 'Manager'], 
   'Sales': ['Sales Executive', 'Manager', 'Sales Representative']
 };
 
-// --- CONFIGURATION: SCATTER PLOT OPTIONS ---
 const NUMERIC_FEATURES = [
     { label: "Age", key: "Age" },
     { label: "Monthly Income", key: "MonthlyIncome" },
     { label: "Years at Company", key: "YearsAtCompany" },
     { label: "Total Working Years", key: "TotalWorkingYears" },
     { label: "Distance From Home", key: "DistanceFromHome" },
-    { label: "Percent Salary Hike", key: "PercentSalaryHike" },
-    { label: "Years in Current Role", key: "YearsInCurrentRole" },
-    { label: "Years Since Promotion", key: "YearsSinceLastPromotion" }
+    { label: "Years in Current Role", key: "YearsInCurrentRole" }
 ];
 
 const App = () => {
   // --- STATE ---
-  const [viewMode, setViewMode] = useState('profile'); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // STEP 1: Set default view to 'overview' (Company Overview)
+  const [viewMode, setViewMode] = useState('overview'); 
   const [selectedModel, setSelectedModel] = useState('Logistic Regression');
   const [loading, setLoading] = useState(false);
   
@@ -46,32 +46,42 @@ const App = () => {
     NumCompaniesWorked: 1, Education: 3, WorkLifeBalance: 3
   });
 
-  // Overview & Filter State
+  // Overview Data
   const [filterOptions, setFilterOptions] = useState({ departments: [], roles: [] });
   const [selectedDepts, setSelectedDepts] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [visibleRoles, setVisibleRoles] = useState([]); 
   const [overviewData, setOverviewData] = useState(null);
+  const [globalStats, setGlobalStats] = useState(null); 
   
-  // Scatter Plot Axes
+  // Chart Config
   const [xAxis, setXAxis] = useState("YearsAtCompany");
   const [yAxis, setYAxis] = useState("MonthlyIncome");
+  const [chartType, setChartType] = useState("scatter"); 
 
   // --- INITIAL LOAD ---
   useEffect(() => {
-    const fetchOptions = async () => {
+    const fetchInit = async () => {
         try {
             const res = await axios.get('http://127.0.0.1:8000/init');
             setFilterOptions(res.data);
-            const allDepts = res.data.departments;
-            setSelectedDepts(allDepts);
+            setSelectedDepts(res.data.departments);
             setSelectedRoles(res.data.roles);
         } catch (e) { console.error("Backend offline"); }
     };
-    fetchOptions();
+    
+    const fetchGlobal = async () => {
+        try {
+            const res = await axios.post('http://127.0.0.1:8000/stats', { departments: [], job_roles: [] });
+            setGlobalStats(res.data);
+        } catch (e) { console.error("Error fetching globals"); }
+    };
+
+    fetchInit();
+    fetchGlobal();
   }, []);
 
-  // --- CASCADING FILTER LOGIC ---
+  // --- CASCADING FILTERS ---
   useEffect(() => {
     const newVisibleRoles = new Set();
     selectedDepts.forEach(dept => {
@@ -86,23 +96,22 @@ const App = () => {
   // --- FETCH STATS ---
   useEffect(() => {
     if (viewMode === 'overview' && selectedDepts.length > 0) {
+        const fetchStats = async () => {
+            try {
+                const res = await axios.post('http://127.0.0.1:8000/stats', {
+                    departments: selectedDepts,
+                    job_roles: selectedRoles,
+                    x_axis: xAxis, 
+                    y_axis: yAxis
+                });
+                setOverviewData(res.data);
+            } catch (e) { console.error("Error fetching stats"); }
+        };
         fetchStats();
     }
   }, [viewMode, selectedDepts, selectedRoles, xAxis, yAxis]);
 
-  const fetchStats = async () => {
-      try {
-          const res = await axios.post('http://127.0.0.1:8000/stats', {
-              departments: selectedDepts,
-              job_roles: selectedRoles,
-              x_axis: xAxis, 
-              y_axis: yAxis
-          });
-          setOverviewData(res.data);
-      } catch (e) { console.error("Error fetching stats"); }
-  };
-
-  // --- HANDLERS ---
+  // --- HANDLERS (Prediction/Search) ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     const isNum = ['Age', 'MonthlyIncome', 'JobSatisfaction', 'EnvironmentSatisfaction', 'JobInvolvement', 'PerformanceRating', 'TotalWorkingYears', 'YearsAtCompany', 'YearsInCurrentRole', 'DistanceFromHome', 'NumCompaniesWorked', 'Education', 'WorkLifeBalance'].includes(name);
@@ -124,84 +133,75 @@ const App = () => {
     try {
       const res = await axios.post(`http://127.0.0.1:8000/predict/${selectedModel}`, formData);
       setResult(res.data);
-    } catch (e) { alert("Prediction failed. Is backend running?"); }
+    } catch (e) { alert("Prediction failed."); }
     setLoading(false);
   };
 
   const handleReset = () => {
-      setFormData({
-        Age: 30, Department: "Research & Development", MonthlyIncome: 6500, OverTime: "No",
-        JobSatisfaction: 3, EnvironmentSatisfaction: 3, JobInvolvement: 3, PerformanceRating: 3,
-        TotalWorkingYears: 8, YearsAtCompany: 5, YearsInCurrentRole: 2, DistanceFromHome: 10,
-        NumCompaniesWorked: 1, Education: 3, WorkLifeBalance: 3
-      });
+      setFormData({ Age: 30, Department: "Sales", MonthlyIncome: 5000, OverTime: "No", JobSatisfaction: 3, EnvironmentSatisfaction: 3, JobInvolvement: 3, PerformanceRating: 3, YearsAtCompany: 5, TotalWorkingYears: 8, DistanceFromHome: 10, NumCompaniesWorked: 1, Education: 3, WorkLifeBalance: 3 });
       setResult(null); setSearchId(''); setSearchError('');
   };
 
-  const handlePrint = () => { window.print(); };
-
   const toggleFilter = (item, list, setList) => {
-      if (list.includes(item)) {
-          setList(list.filter(i => i !== item));
-      } else {
-          setList([...list, item]);
-      }
+      if (list.includes(item)) setList(list.filter(i => i !== item));
+      else setList([...list, item]);
   };
 
-  // --- DATA PREP FOR CHARTS ---
-  const radarData = [
-    { subject: 'Job Sat.', A: formData.JobSatisfaction, fullMark: 4 },
-    { subject: 'Env Sat.', A: formData.EnvironmentSatisfaction, fullMark: 4 },
-    { subject: 'Involvement', A: formData.JobInvolvement, fullMark: 4 },
-    { subject: 'Performance', A: formData.PerformanceRating, fullMark: 4 },
+  // --- DATA PREP ---
+  const benchmarkIncome = [
+      { name: 'Employee', value: formData.MonthlyIncome, fill: '#6366f1' },
+      { name: 'Avg', value: globalStats?.kpi.avg_income || 6500, fill: '#cbd5e1' }
+  ];
+  
+  const benchmarkTenure = [
+      { name: 'Employee', value: formData.YearsAtCompany, fill: '#10b981' },
+      { name: 'Avg', value: globalStats?.kpi.avg_years_company || 7, fill: '#cbd5e1' } 
   ];
 
-  // Split Scatter Data into two groups for cleaner Legend/Colors
-  const scatterActive = overviewData?.scatter_chart.filter(d => d.attrition === 'No') || [];
-  const scatterLeft = overviewData?.scatter_chart.filter(d => d.attrition === 'Yes') || [];
-
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden text-base">
+    <div className="flex h-screen bg-slate-100 font-sans text-slate-900 overflow-hidden text-base">
       
       {/* --- SIDEBAR --- */}
-      <aside className="w-80 bg-white border-r border-slate-200 flex flex-col shadow-sm h-full z-20">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3 text-indigo-600">
-            <Activity size={32} />
-            <h1 className="text-2xl font-bold tracking-tight">Who's Next</h1>
+      <aside className={`bg-white border-r border-slate-200 flex flex-col shadow-xl h-full z-30 fixed top-0 left-0 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-72 translate-x-0' : 'w-0 -translate-x-full opacity-0'}`}>
+        <div className="p-5 border-b border-slate-100 bg-slate-50">
+          <div className="flex items-center gap-3 text-indigo-700">
+            <Activity size={28} />
+            <h1 className="text-xl font-black tracking-tight uppercase">Who's Next</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-2 font-medium">Attrition Prediction System</p>
+          <p className="text-xs text-slate-500 mt-1 font-semibold tracking-wide">Workforce Intelligence</p>
         </div>
 
-        <nav className="p-5 space-y-8 flex-1 overflow-y-auto custom-scrollbar">
-            {/* View Selector */}
+        <nav className="p-4 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+            {/* View Selector (Reordered) */}
             <div>
-                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Dashboard Mode</div>
-                <div className="space-y-3">
-                    <button onClick={() => setViewMode('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all ${viewMode === 'profile' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
-                        <User size={20}/> Employee Profile
+                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Navigation</div>
+                <div className="space-y-2">
+                    {/* BUTTON 1: COMPANY OVERVIEW */}
+                    <button onClick={() => setViewMode('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${viewMode === 'overview' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <LayoutDashboard size={18}/> Company Overview
                     </button>
-                    <button onClick={() => setViewMode('overview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all ${viewMode === 'overview' ? 'bg-indigo-50 text-indigo-700 shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}>
-                        <LayoutDashboard size={20}/> Company Overview
+                    {/* BUTTON 2: EMPLOYEE PROFILE */}
+                    <button onClick={() => setViewMode('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${viewMode === 'profile' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <User size={18}/> Employee Profile
                     </button>
                 </div>
             </div>
 
-            {/* DYNAMIC FILTERS */}
+            {/* DYNAMIC FILTERS (Only shows in Overview Mode) */}
             {viewMode === 'overview' && (
                 <div className="animate-fade-in">
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 px-2 flex items-center gap-2">
-                        <Filter size={14}/> Data Filters
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2 flex items-center gap-2">
+                        <Filter size={12}/> Global Filters
                     </div>
                     
                     {/* Dept Filter */}
-                    <div className="mb-6">
-                        <h4 className="text-sm font-bold px-2 mb-2 text-slate-800">Departments</h4>
-                        <div className="space-y-2 px-2">
+                    <div className="mb-4">
+                        <h4 className="text-xs font-bold px-2 mb-2 text-slate-700">Departments</h4>
+                        <div className="space-y-1 px-2">
                             {filterOptions.departments.map(d => (
-                                <label key={d} className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
-                                    <input type="checkbox" checked={selectedDepts.includes(d)} onChange={() => toggleFilter(d, selectedDepts, setSelectedDepts)} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"/>
-                                    <span className="truncate font-medium">{d}</span>
+                                <label key={d} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer hover:bg-slate-50 p-1.5 rounded">
+                                    <input type="checkbox" checked={selectedDepts.includes(d)} onChange={() => toggleFilter(d, selectedDepts, setSelectedDepts)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"/>
+                                    <span className="truncate">{d}</span>
                                 </label>
                             ))}
                         </div>
@@ -209,15 +209,15 @@ const App = () => {
 
                     {/* Role Filter */}
                     <div>
-                        <h4 className="text-sm font-bold px-2 mb-2 text-slate-800">Job Roles</h4>
+                        <h4 className="text-xs font-bold px-2 mb-2 text-slate-700">Job Roles</h4>
                         {visibleRoles.length === 0 ? (
-                             <div className="text-sm text-slate-400 italic px-2 py-2 bg-slate-50 rounded border border-dashed border-slate-200">Select a Department above</div>
+                             <div className="text-xs text-slate-400 italic px-2 py-2 border border-dashed rounded">Select a Dept above</div>
                         ) : (
-                            <div className="max-h-64 overflow-y-auto space-y-2 px-2 custom-scrollbar">
+                            <div className="max-h-48 overflow-y-auto space-y-1 px-2 custom-scrollbar">
                                 {visibleRoles.map(r => (
-                                    <label key={r} className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer hover:bg-slate-50 p-2 rounded transition-colors">
-                                        <input type="checkbox" checked={selectedRoles.includes(r)} onChange={() => toggleFilter(r, selectedRoles, setSelectedRoles)} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"/>
-                                        <span className="truncate font-medium">{r}</span>
+                                    <label key={r} className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer hover:bg-slate-50 p-1.5 rounded">
+                                        <input type="checkbox" checked={selectedRoles.includes(r)} onChange={() => toggleFilter(r, selectedRoles, setSelectedRoles)} className="rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"/>
+                                        <span className="truncate">{r}</span>
                                     </label>
                                 ))}
                             </div>
@@ -226,15 +226,15 @@ const App = () => {
                 </div>
             )}
 
-            {/* Prediction Model */}
+            {/* Prediction Model (Only shows in Profile Mode) */}
             {viewMode === 'profile' && (
                 <div>
-                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Prediction Model</div>
-                    <div className="space-y-3 px-2">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-2">Model Selection</div>
+                    <div className="space-y-2 px-2">
                         {['Logistic Regression', 'Random Forest', 'Gradient Boosting', 'Ensemble (All Models)'].map((model) => (
-                            <label key={model} className="flex items-center gap-3 cursor-pointer group p-1">
-                                <input type="radio" name="model_selector" value={model} checked={selectedModel === model} onChange={(e) => setSelectedModel(e.target.value)} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300 bg-slate-100"/>
-                                <span className={`text-sm font-medium transition-colors ${selectedModel === model ? 'text-indigo-700' : 'text-slate-600 group-hover:text-slate-900'}`}>{model}</span>
+                            <label key={model} className="flex items-center gap-2 cursor-pointer group p-1">
+                                <input type="radio" name="model_selector" value={model} checked={selectedModel === model} onChange={(e) => setSelectedModel(e.target.value)} className="text-indigo-600 focus:ring-indigo-500"/>
+                                <span className={`text-xs font-medium ${selectedModel === model ? 'text-indigo-700' : 'text-slate-600'}`}>{model}</span>
                             </label>
                         ))}
                     </div>
@@ -244,215 +244,220 @@ const App = () => {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 p-8 overflow-y-auto bg-slate-50/50">
+      <div className={`flex-1 flex flex-col h-full transition-all duration-300 ${isSidebarOpen ? 'ml-72' : 'ml-0'}`}>
         
-        {viewMode === 'profile' ? (
-            <div className="grid grid-cols-12 gap-8 h-full">
-                {/* Search & Inputs */}
-                <div className="col-span-4 flex flex-col gap-6">
-                    <div className="bg-indigo-900 p-6 rounded-2xl shadow-lg text-white no-print">
-                        <div className="flex gap-3">
-                            <input type="number" placeholder="Enter Employee ID..." className="w-full p-3 rounded-xl text-slate-900 outline-none font-mono text-lg font-medium" value={searchId} onChange={(e) => setSearchId(e.target.value)}/>
-                            <button onClick={handleSearch} disabled={loading} className="bg-indigo-500 hover:bg-indigo-400 p-3 rounded-xl transition-colors shadow-lg"><Search size={22} /></button>
-                        </div>
-                        {searchError && <div className="text-red-300 text-sm mt-3 font-medium bg-red-900/30 p-2 rounded-lg flex items-center gap-2"><AlertTriangle size={14}/> {searchError}</div>}
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex-1 overflow-y-auto no-print">
-                        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 text-lg"><Settings size={20} className="text-slate-400"/> Edit Factors</h3>
-                        <div className="space-y-6">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Department</label>
-                                <select name="Department" value={formData.Department} onChange={handleChange} className="w-full mt-2 p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                                    <option>Sales</option><option>Research & Development</option><option>Human Resources</option>
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Income ($)</label><input type="number" name="MonthlyIncome" value={formData.MonthlyIncome} onChange={handleChange} className="w-full mt-2 p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"/></div>
-                                <div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Overtime</label><select name="OverTime" value={formData.OverTime} onChange={handleChange} className="w-full mt-2 p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none"><option>No</option><option>Yes</option></select></div>
-                            </div>
-                            {[{ l: "Job Satisfaction", k: "JobSatisfaction" }, { l: "Environment Sat.", k: "EnvironmentSatisfaction" }, { l: "Job Involvement", k: "JobInvolvement" }].map((i) => (
-                                <div key={i.k}>
-                                    <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"><span>{i.l}</span><span className="text-indigo-600 font-bold text-sm">{formData[i.k]}/4</span></div>
-                                    <input type="range" min="1" max="4" name={i.k} value={formData[i.k]} onChange={handleChange} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"/>
-                                </div>
-                            ))}
-                            <div className="flex flex-col gap-3 mt-8">
-                                <button onClick={handlePredict} disabled={loading} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-base flex justify-center items-center gap-2">
-                                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <Activity size={20}/>}
-                                    {loading ? "Analyzing..." : "Analyze Risk"}
-                                </button>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button onClick={handleReset} className="flex items-center justify-center gap-2 py-3 bg-slate-100 text-slate-600 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors border border-slate-200"><RotateCcw size={16}/> Reset</button>
-                                    <button onClick={handlePrint} disabled={!result} className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors border ${!result ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-slate-200'}`}><Printer size={16}/> Report</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Results Area */}
-                <div className="col-span-8 flex flex-col gap-6">
-                    <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-                        <div>
-                            <div className="text-sm font-bold text-slate-400 uppercase tracking-wide">Attrition Probability</div>
-                            <div className={`text-6xl font-black mt-2 tracking-tight ${!result ? 'text-slate-300' : result.risk_level === 'CRITICAL' ? 'text-red-600' : result.risk_level === 'MEDIUM' ? 'text-orange-500' : 'text-green-600'}`}>
-                                {result ? `${(result.attrition_probability * 100).toFixed(1)}%` : "--%"}
-                            </div>
-                        </div>
-                        <div className={`px-8 py-4 rounded-2xl font-bold text-lg border-2 flex items-center gap-3 shadow-sm ${!result ? 'bg-slate-50 text-slate-400 border-slate-100' : result.risk_level === 'CRITICAL' ? 'bg-red-50 text-red-700 border-red-100' : result.risk_level === 'MEDIUM' ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-green-50 text-green-700 border-green-100'}`}>
-                             {result && (result.risk_level === 'CRITICAL' ? <AlertTriangle size={28}/> : <CheckCircle size={28}/>)}
-                            {result ? `${result.risk_level} RISK` : "READY TO ANALYZE"}
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                            <h4 className="font-bold text-slate-700 mb-4 text-base">Engagement Profile</h4>
-                            <div className="flex-1 min-h-0 text-sm">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
-                                        <PolarGrid stroke="#e2e8f0" />
-                                        <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 12, fontWeight: 600 }} />
-                                        <PolarRadiusAxis angle={30} domain={[0, 4]} tick={false} axisLine={false} />
-                                        <Radar name="Employee" dataKey="A" stroke="#4f46e5" strokeWidth={3} fill="#6366f1" fillOpacity={0.4} />
-                                        <Tooltip />
-                                    </RadarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-6 overflow-hidden">
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-y-auto custom-scrollbar">
-                                <h4 className="font-bold text-slate-700 mb-4 text-base flex items-center gap-2"><Activity size={18} className="text-indigo-500"/> Key Risk Drivers</h4>
-                                {!result ? <div className="text-slate-400 text-sm mt-10 text-center italic">Run prediction to see factors...</div> : (
-                                    <div className="space-y-3">
-                                        {result.drivers?.length > 0 ? result.drivers.map((d, i) => (
-                                            <div key={i} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="font-bold text-slate-800 text-sm">{d.name}</span>
-                                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase ${d.impact === 'High' || d.impact === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>{d.impact}</span>
-                                                </div>
-                                                <p className="text-sm text-slate-600 mt-1 leading-relaxed">{d.desc}</p>
-                                            </div>
-                                        )) : (
-                                            <div className="text-sm text-green-600 bg-green-50 p-4 rounded-xl border border-green-100 flex gap-2 items-center font-medium"><CheckCircle size={18}/> No major negative drivers detected.</div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            <div className={`p-6 rounded-2xl border shadow-sm flex-1 ${!result || result.risk_level === 'LOW' ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-slate-200'}`}>
-                                <h4 className="font-bold text-slate-700 mb-4 text-base flex items-center gap-2"><Settings size={18} className="text-indigo-500"/> AI Recommendation</h4>
-                                {!result ? <div className="text-slate-400 text-sm text-center mt-4 italic">Waiting for analysis...</div> : (
-                                    <ul className="text-sm space-y-3">
-                                        {result.risk_level === 'LOW' ? (
-                                            <li className="text-indigo-700 font-medium text-base">Employee is stable. Focus on career growth & retention strategies.</li>
-                                        ) : (
-                                            <>
-                                                {result.drivers.some(d => d.name === 'Income') && <li className="flex gap-3 items-start"><span className="text-green-500 font-bold text-xl leading-none">↑</span> <span>Consider a <strong>market salary correction</strong> immediately.</span></li>}
-                                                {result.drivers.some(d => d.name === 'Overtime') && <li className="flex gap-3 items-start"><span className="text-blue-500 font-bold text-xl leading-none">↘</span> <span>Review workload distribution to reduce <strong>overtime</strong>.</span></li>}
-                                                {result.drivers.some(d => d.name === 'Satisfaction') && <li className="flex gap-3 items-start"><span className="text-purple-500 font-bold text-xl leading-none">♥</span> <span>Schedule a 1-on-1 for <strong>role alignment</strong>.</span></li>}
-                                                {!result.drivers.some(d => ['Income','Overtime','Satisfaction'].includes(d.name)) && <li className="flex gap-3 items-start"><span className="text-slate-500 font-bold text-xl leading-none">•</span> <span>Conduct a standard "Stay Interview".</span></li>}
-                                            </>
-                                        )}
-                                    </ul>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        {/* Header */}
+        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6 sticky top-0 z-20 shadow-sm">
+            <div className="flex items-center gap-4">
+                <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+                    {isSidebarOpen ? <X size={20}/> : <Menu size={20}/>}
+                </button>
+                <h2 className="text-lg font-bold text-slate-800">
+                    {viewMode === 'profile' ? 'Employee Diagnostics' : 'Executive Dashboard'}
+                </h2>
             </div>
-        ) : (
-            // --- COMPANY OVERVIEW VIEW ---
-            <div className="flex flex-col h-full gap-8">
-                
-                {selectedDepts.length === 0 ? (
-                    <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-                        <ArrowLeft size={64} className="mb-6 text-slate-300"/>
-                        <h3 className="text-2xl font-bold text-slate-600">No Data Selected</h3>
-                        <p className="mt-2 text-base text-slate-500">Please select at least one <strong>Department</strong> from the sidebar filters to view reports.</p>
+            <div className="text-xs font-medium text-slate-400 bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                Last Updated: Live
+            </div>
+        </header>
+
+        <main className="flex-1 p-6 overflow-y-auto bg-slate-100">
+            
+            {/* --- COMPANY OVERVIEW VIEW (POWER BI STYLE) --- */}
+            {viewMode === 'overview' && (
+                selectedDepts.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                        <Filter size={64} className="mb-4 text-slate-300"/>
+                        <h3 className="text-xl font-bold text-slate-600">Filters Cleared</h3>
+                        <p>Select a Department to generate the dashboard.</p>
                     </div>
                 ) : (
-                    <>
-                        <div className="grid grid-cols-4 gap-6">
+                    <div className="flex flex-col gap-6">
+                        {/* 1. TOP KPI ROW */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {[
-                                { l: "Total Employees", v: overviewData?.kpi.total_employees || 0, sub: "Active Workforce", style: "bg-gradient-to-br from-pink-50 to-pink-100 border-pink-200", text: "text-pink-800", subText: "text-pink-600" },
-                                { l: "Attrition Rate", v: (overviewData?.kpi.attrition_rate.toFixed(1) || 0) + "%", sub: "Current Rate", style: "bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200", text: "text-yellow-800", subText: "text-yellow-600" },
-                                { l: "Avg Satisfaction", v: (overviewData?.kpi.avg_satisfaction.toFixed(1) || 0) + "/4", sub: "Environment Score", style: "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200", text: "text-blue-800", subText: "text-blue-600" },
-                                { l: "Avg Income", v: "$" + (overviewData?.kpi.avg_income.toFixed(0) || 0), sub: "Monthly Base", style: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200", text: "text-purple-800", subText: "text-purple-600" },
+                                { l: "Total Workforce", v: overviewData?.kpi.total_employees || 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+                                { l: "Attrition Rate", v: (overviewData?.kpi.attrition_rate.toFixed(1) || 0) + "%", icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50" },
+                                { l: "Avg Satisfaction", v: (overviewData?.kpi.avg_satisfaction.toFixed(1) || 0) + "/4", icon: Activity, color: "text-emerald-600", bg: "bg-emerald-50" },
+                                { l: "Avg Income", v: "$" + (overviewData?.kpi.avg_income.toFixed(0) || 0), icon: DollarSign, color: "text-indigo-600", bg: "bg-indigo-50" },
                             ].map((k, i) => (
-                                <div key={i} className={`p-6 rounded-2xl border shadow-sm hover:scale-[1.02] transition-transform ${k.style}`}>
-                                    <div className={`text-xs font-bold uppercase tracking-wide opacity-70 ${k.text}`}>{k.l}</div>
-                                    <div className="text-4xl font-black text-slate-800 mt-2">{k.v}</div>
-                                    <div className={`text-sm mt-2 font-medium ${k.subText}`}>{k.sub}</div>
+                                <div key={i} className="dashboard-card border-l-4" style={{ borderLeftColor: 'currentColor' }}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">{k.l}</p>
+                                            <h3 className="text-2xl font-black text-slate-800 mt-1">{k.v}</h3>
+                                        </div>
+                                        <div className={`p-2 rounded-lg ${k.bg} ${k.color}`}>
+                                            <k.icon size={20} />
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
-                            {/* ATTRITION BY DEPT */}
-                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-                                <h4 className="font-bold text-slate-700 mb-6 text-lg">Attrition by Department</h4>
-                                <div className="flex-1 min-h-0 text-sm">
+                        {/* 2. MAIN CHART GRID (BENTO BOX) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
+                            
+                            {/* LEFT: Attrition by Dept (Bar) */}
+                            <div className="lg:col-span-1 dashboard-card">
+                                <div className="dashboard-title"><Briefcase size={16}/> Attrition by Department</div>
+                                <div className="flex-1 min-h-0 text-xs">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={overviewData?.dept_chart || []} layout="vertical">
+                                        <BarChart data={overviewData?.dept_chart || []} layout="vertical" margin={{ left: 0, right: 20 }}>
                                             <XAxis type="number" hide/>
-                                            <YAxis dataKey="name" type="category" width={150} tick={{fontSize: 12, fill:'#64748b', fontWeight: 500}} axisLine={false} tickLine={false}/>
-                                            <Tooltip cursor={{fill: 'transparent'}}/>
-                                            <Bar dataKey="value" fill="#f43f5e" radius={[0, 6, 6, 0]} barSize={32} />
+                                            <YAxis dataKey="name" type="category" width={110} tick={{fontSize: 11, fill:'#64748b', fontWeight: 500}} axisLine={false} tickLine={false}/>
+                                            <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+                                            <Bar dataKey="value" fill="#f43f5e" radius={[0, 4, 4, 0]} barSize={20} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
 
-                            {/* FEATURE COMPARISON SCATTER PLOT */}
-                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                            {/* RIGHT: Feature Comparison (Scatter/Area) */}
+                            <div className="lg:col-span-2 dashboard-card">
                                 <div className="flex items-center justify-between mb-4">
-                                    <h4 className="font-bold text-slate-700 text-lg flex items-center gap-2">
-                                        <BarChart2 size={20} className="text-indigo-500"/> Feature Comparison
-                                    </h4>
+                                    <div className="dashboard-title mb-0"><BarChart2 size={16}/> Correlation Analysis</div>
+                                    
+                                    {/* Controls */}
                                     <div className="flex gap-2">
-                                        <select value={xAxis} onChange={(e) => setXAxis(e.target.value)} className="text-xs p-1.5 border rounded bg-slate-50 outline-none focus:ring-1 focus:ring-indigo-500">
+                                        <select value={chartType} onChange={(e) => setChartType(e.target.value)} className="text-xs p-1 border rounded bg-slate-50">
+                                            <option value="scatter">Scatter</option>
+                                            <option value="line">Line</option>
+                                            <option value="area">Area</option>
+                                        </select>
+                                        <select value={xAxis} onChange={(e) => setXAxis(e.target.value)} className="text-xs p-1 border rounded bg-slate-50 w-32">
                                             {NUMERIC_FEATURES.map(f => <option key={f.key} value={f.key}>X: {f.label}</option>)}
                                         </select>
-                                        <select value={yAxis} onChange={(e) => setYAxis(e.target.value)} className="text-xs p-1.5 border rounded bg-slate-50 outline-none focus:ring-1 focus:ring-indigo-500">
+                                        <select value={yAxis} onChange={(e) => setYAxis(e.target.value)} className="text-xs p-1 border rounded bg-slate-50 w-32">
                                             {NUMERIC_FEATURES.map(f => <option key={f.key} value={f.key}>Y: {f.label}</option>)}
                                         </select>
                                     </div>
                                 </div>
-                                <div className="flex-1 min-h-0 text-sm">
+                                <div className="flex-1 min-h-0 text-xs">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                            <XAxis type="number" dataKey="x" name={xAxis} tick={{fontSize: 12, fill:'#64748b'}} axisLine={false} tickLine={false} label={{ value: xAxis, position: 'insideBottomRight', offset: -5, fontSize: 10, fill: '#94a3b8' }}/>
-                                            <YAxis type="number" dataKey="y" name={yAxis} tick={{fontSize: 12, fill:'#64748b'}} axisLine={false} tickLine={false}/>
-                                            <Tooltip cursor={{ strokeDasharray: '3 3' }} content={({ payload }) => {
-                                                if (payload && payload.length) {
-                                                    const { x, y, attrition } = payload[0].payload;
-                                                    return (
-                                                        <div className="bg-white p-3 border shadow-xl rounded-lg text-xs">
-                                                            <div className={`font-bold mb-1 ${attrition === 'Yes' ? 'text-red-600' : 'text-emerald-600'}`}>{attrition === 'Yes' ? '🔴 Attrited' : '🟢 Active'}</div>
-                                                            <div className="text-slate-500">X: <span className="font-mono text-slate-700">{x}</span></div>
-                                                            <div className="text-slate-500">Y: <span className="font-mono text-slate-700">{y}</span></div>
-                                                        </div>
-                                                    );
-                                                }
-                                                return null;
-                                            }}/>
-                                            <Legend verticalAlign="top" height={36} iconType="circle"/>
-                                            <Scatter name="Active Employees" data={scatterActive} fill="#10b981" fillOpacity={0.6} />
-                                            <Scatter name="Left Employees" data={scatterLeft} fill="#ef4444" fillOpacity={0.8} />
-                                        </ScatterChart>
+                                        {chartType === 'scatter' ? (
+                                            <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                                <XAxis type="number" dataKey="x" name={xAxis} tick={{fontSize: 11, fill:'#64748b'}} axisLine={false} tickLine={false}/>
+                                                <YAxis type="number" dataKey="y" name={yAxis} tick={{fontSize: 11, fill:'#64748b'}} axisLine={false} tickLine={false}/>
+                                                <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 12px rgba(0,0,0,0.1)'}}/>
+                                                <Scatter name="Employees" data={overviewData?.scatter_chart || []} fill="#6366f1" />
+                                            </ScatterChart>
+                                        ) : chartType === 'area' ? (
+                                            <AreaChart data={overviewData?.scatter_chart || []} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="x" tick={{fontSize: 11}}/>
+                                                <YAxis dataKey="y" tick={{fontSize: 11}}/>
+                                                <Tooltip />
+                                                <Area type="monotone" dataKey="y" stroke="#6366f1" fill="#6366f1" fillOpacity={0.1} />
+                                            </AreaChart>
+                                        ) : (
+                                            <LineChart data={overviewData?.scatter_chart || []} margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                                <XAxis dataKey="x" tick={{fontSize: 11}}/>
+                                                <YAxis dataKey="y" tick={{fontSize: 11}}/>
+                                                <Tooltip />
+                                                <Line type="monotone" dataKey="y" stroke="#6366f1" dot={false} strokeWidth={2} />
+                                            </LineChart>
+                                        )}
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
-                    </>
-                )}
-            </div>
-        )}
-      </main>
+                    </div>
+                )
+            )}
+
+            {/* --- EMPLOYEE PROFILE VIEW --- */}
+            {viewMode === 'profile' && (
+                <div className="grid grid-cols-12 gap-6 h-full">
+                    {/* Left: Inputs */}
+                    <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
+                        <div className="bg-slate-800 p-5 rounded-xl shadow-lg text-white">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase mb-2">Employee Search</h3>
+                            <div className="flex gap-2">
+                                <input type="number" className="w-full p-2 rounded bg-slate-700 border border-slate-600 text-white focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="ID..." value={searchId} onChange={(e) => setSearchId(e.target.value)}/>
+                                <button onClick={handleSearch} disabled={loading} className="bg-indigo-500 hover:bg-indigo-400 px-4 rounded font-bold transition-colors"><Search size={18}/></button>
+                            </div>
+                            {searchError && <div className="text-red-300 text-xs mt-2 flex items-center gap-1"><AlertTriangle size={12}/> {searchError}</div>}
+                        </div>
+
+                        <div className="dashboard-card flex-1 overflow-y-auto">
+                            <div className="dashboard-title"><Settings size={16}/> Adjustment Factors</div>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Dept</label>
+                                    <select name="Department" value={formData.Department} onChange={handleChange} className="w-full mt-1 p-2 border rounded text-sm bg-slate-50"><option>Sales</option><option>Research & Development</option><option>Human Resources</option></select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase">Income</label><input type="number" name="MonthlyIncome" value={formData.MonthlyIncome} onChange={handleChange} className="w-full mt-1 p-2 border rounded text-sm bg-slate-50"/></div>
+                                    <div><label className="text-xs font-bold text-slate-500 uppercase">Overtime</label><select name="OverTime" value={formData.OverTime} onChange={handleChange} className="w-full mt-1 p-2 border rounded text-sm bg-slate-50"><option>No</option><option>Yes</option></select></div>
+                                </div>
+                                {[{ l: "Job Satisfaction", k: "JobSatisfaction" }, { l: "Env. Satisfaction", k: "EnvironmentSatisfaction" }].map((i) => (
+                                    <div key={i.k}>
+                                        <div className="flex justify-between text-xs font-bold text-slate-500 uppercase"><span>{i.l}</span><span className="text-indigo-600">{formData[i.k]}/4</span></div>
+                                        <input type="range" min="1" max="4" name={i.k} value={formData[i.k]} onChange={handleChange} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-1"/>
+                                    </div>
+                                ))}
+                                <button onClick={handlePredict} disabled={loading} className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-md hover:bg-indigo-700 transition-all text-sm mt-4">
+                                    {loading ? "Analyzing..." : "Update Risk Model"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right: Analysis */}
+                    <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
+                        {/* Risk Banner */}
+                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase">Predicted Risk</div>
+                                <div className={`text-5xl font-black mt-1 ${!result ? 'text-slate-300' : result.risk_level === 'CRITICAL' ? 'text-red-600' : result.risk_level === 'MEDIUM' ? 'text-orange-500' : 'text-emerald-600'}`}>
+                                    {result ? `${(result.attrition_probability * 100).toFixed(1)}%` : "--%"}
+                                </div>
+                            </div>
+                            <div className={`px-4 py-2 rounded-lg font-bold text-sm border flex items-center gap-2 ${!result ? 'bg-slate-50 text-slate-400' : result.risk_level === 'CRITICAL' ? 'bg-red-50 text-red-700 border-red-100' : result.risk_level === 'MEDIUM' ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'}`}>
+                                {result && (result.risk_level === 'CRITICAL' ? <AlertTriangle size={18}/> : <CheckCircle size={18}/>)}
+                                {result ? `${result.risk_level} RISK` : "READY"}
+                            </div>
+                        </div>
+
+                        {/* Status & Benchmarks */}
+                        {result && (
+                            <div className="grid grid-cols-2 gap-6 h-64">
+                                <div className="dashboard-card">
+                                    <div className="dashboard-title"><FileText size={16}/> Risk Summary</div>
+                                    <p className="text-sm text-slate-600 leading-relaxed">
+                                        Employee is currently <strong>{result.risk_level}</strong>. 
+                                        {result.risk_level === 'CRITICAL' ? " Immediate intervention required. Salary and Overtime are key drivers." : " Stability is good, but monitor satisfaction levels."}
+                                    </p>
+                                    <div className="mt-auto pt-4">
+                                        <div className="text-xs font-bold text-slate-400 uppercase">AI Recommendation</div>
+                                        <div className="text-sm font-medium text-indigo-700 mt-1">
+                                            {result.drivers[0]?.name === 'Income' ? "Market Salary Correction" : "Workload Balancing Review"}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="dashboard-card">
+                                    <div className="dashboard-title"><Users size={16}/> Peer Benchmark</div>
+                                    <div className="flex-1 min-h-0 text-xs">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={benchmarkIncome} layout="vertical" margin={{ left: 10 }}>
+                                                <XAxis type="number" hide />
+                                                <YAxis dataKey="name" type="category" width={80} tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
+                                                <Tooltip cursor={{fill: 'transparent'}}/>
+                                                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', fontSize: 10, fill: '#64748b' }}/>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </main>
+      </div>
     </div>
   );
 };
