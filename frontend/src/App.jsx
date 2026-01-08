@@ -19,11 +19,11 @@ const DEPT_ROLE_MAP = {
 
 // --- CONFIGURATION: SCATTER PLOT OPTIONS ---
 const NUMERIC_FEATURES = [
-    { label: "Age", key: "Age" },
-    { label: "Monthly Income", key: "MonthlyIncome" },
-    { label: "Years at Company", key: "YearsAtCompany" },
-    { label: "Total Working Years", key: "TotalWorkingYears" },
-    { label: "Distance From Home", key: "DistanceFromHome" },
+  { label: "Age", key: "Age" },
+  { label: "Monthly Income", key: "MonthlyIncome" },
+  { label: "Years at Company", key: "YearsAtCompany" },
+  { label: "Total Working Years", key: "TotalWorkingYears" },
+  { label: "Distance From Home", key: "DistanceFromHome" },
     { label: "Percent Salary Hike", key: "PercentSalaryHike" },
     { label: "Years in Current Role", key: "YearsInCurrentRole" },
     { label: "Years Since Promotion", key: "YearsSinceLastPromotion" }
@@ -437,8 +437,8 @@ const App = () => {
                                     </div>
                                 </div>
                                 <div className="flex-1 min-h-0 text-sm">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
+  <ResponsiveContainer width="100%" height="100%">
+      <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                             <XAxis type="number" dataKey="x" name={xAxis} tick={{fontSize: 12, fill:'#64748b'}} axisLine={false} tickLine={false} label={{ value: xAxis, position: 'insideBottomRight', offset: -5, fontSize: 10, fill: '#94a3b8' }}/>
                                             <YAxis type="number" dataKey="y" name={yAxis} tick={{fontSize: 12, fill:'#64748b'}} axisLine={false} tickLine={false}/>
@@ -458,8 +458,8 @@ const App = () => {
                                             <Legend verticalAlign="top" height={36} iconType="circle"/>
                                             <Scatter name="Active Employees" data={scatterActive} fill="#10b981" fillOpacity={0.6} />
                                             <Scatter name="Left Employees" data={scatterLeft} fill="#ef4444" fillOpacity={0.8} />
-                                        </ScatterChart>
-                                    </ResponsiveContainer>
+      </ScatterChart>
+  </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
