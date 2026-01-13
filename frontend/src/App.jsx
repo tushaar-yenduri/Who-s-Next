@@ -127,7 +127,6 @@ const App = () => {
                 ["Total Employees", overviewData.kpis.total_employees],
                 ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
                 ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
-                ["Avg Income", "$" + overviewData.kpis.avg_income]
               ].map(([l, v], i) => (
                 <div key={i} className="bg-white p-6 rounded-2xl shadow border">
                   <div className="text-xs text-slate-500 uppercase">{l}</div>
