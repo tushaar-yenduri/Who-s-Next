@@ -123,17 +123,19 @@ const App = () => {
           <>
             {/* KPIs */}
             <div className="grid grid-cols-4 gap-6 mb-8">
-              {[
-                ["Total Employees", overviewData.kpis.total_employees],
-                ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
-                ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
-              ].map(([l, v], i) => (
-                <div key={i} className="bg-white p-6 rounded-2xl shadow border">
-                  <div className="text-xs text-slate-500 uppercase">{l}</div>
-                  <div className="text-3xl font-black mt-2">{v}</div>
-                </div>
-              ))}
-            </div>
+  {[
+    ["Total Employees", overviewData.kpis.total_employees],
+    ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
+    ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
+    ["High Risk Employees", overviewData.kpis.high_risk_employees],
+  ].map(([l, v], i) => (
+    <div key={i} className="bg-white p-6 rounded-2xl shadow border">
+      <div className="text-xs text-slate-500 uppercase">{l}</div>
+      <div className="text-3xl font-black mt-2">{v}</div>
+    </div>
+  ))}
+</div>
+
 
             {/* CHART GRID */}
             <div className="grid grid-cols-2 gap-6">

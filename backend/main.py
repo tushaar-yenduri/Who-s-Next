@@ -67,7 +67,7 @@ def get_dashboard_stats(filters: StatsFilter):
         "total_employees": total_employees,
         "attrition_rate": round((attrition_count / total_employees) * 100, 2) if total_employees else 0,
         "avg_satisfaction": round(filtered_df["EnvironmentSatisfaction"].mean(), 2),
-        "avg_income": round(filtered_df["MonthlyIncome"].mean(), 0),
+        "high_risk_employees": attrition_count,
     }
 
     # --------------------------------------------------
