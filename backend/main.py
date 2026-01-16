@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -21,6 +21,27 @@ app.add_middleware(
 # LOAD DATA
 # --------------------------------------------------
 df = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
+
+# --------------------------------------------------
+# JOB ROLE MAPPING BY DEPARTMENT
+# --------------------------------------------------
+JOB_ROLE_BY_DEPARTMENT = {
+    "Research & Development": [
+        "Laboratory Technician",
+        "Research Scientist",
+        "Manufacturing Director",
+        "Healthcare Representative",
+        "Research Director"
+    ],
+    "Sales": [
+        "Sales Executive",
+        "Sales Representative",
+        "Manager"
+    ],
+    "Human Resources": [
+        "Human Resources"
+    ]
+}
 
 # --------------------------------------------------
 # REQUEST MODEL
@@ -102,11 +123,29 @@ def get_dashboard_stats(filters: StatsFilter):
     }
 
 # --------------------------------------------------
+# EMPLOYEE LIST
+# --------------------------------------------------
+@app.get("/employees")
+def get_employees():
+    employees = df['EmployeeNumber'].unique().tolist()
+    return {"employees": [{"id": str(emp), "name": f"Employee {emp}"} for emp in employees[:20]]}  # Limit to 20 for demo
+
+# --------------------------------------------------
 # FILTER OPTIONS (FOR UI DROPDOWNS)
 # --------------------------------------------------
 @app.get("/filters")
-def get_filter_options():
+def get_filter_options(departments: str = Query("")):
+    if departments:
+        dept_list = departments.split(',')
+        job_roles = []
+        for dept in dept_list:
+            if dept in JOB_ROLE_BY_DEPARTMENT:
+                job_roles.extend(JOB_ROLE_BY_DEPARTMENT[dept])
+        job_roles = sorted(list(set(job_roles)))  # Remove duplicates and sort
+    else:
+        # If no departments selected, return no job roles
+        job_roles = []
     return {
-        "departments": sorted(df["Department"].unique().tolist()),
-        "job_roles": sorted(df["JobRole"].unique().tolist()),
+        "departments": sorted(JOB_ROLE_BY_DEPARTMENT.keys()),
+        "job_roles": job_roles,
     }
