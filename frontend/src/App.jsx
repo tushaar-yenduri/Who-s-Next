@@ -77,14 +77,10 @@ const App = () => {
         })
         .catch(() => console.error("Failed to update job roles"));
     } else {
-      // If no departments selected, reset to all job roles
-      axios.get("http://127.0.0.1:8000/filters")
-        .then(res => {
-          setFilters(prev => ({ ...prev, job_roles: res.data.job_roles }));
-          setSelectedRoles(res.data.job_roles);
-        })
-        .catch(() => console.error("Failed to reset job roles"));
+      setFilters(prev => ({ ...prev, job_roles: [] }));
+      setSelectedRoles([]);
     }
+
   }, [selectedDepts]);
 
   /* ---------------- FETCH DASHBOARD STATS ---------------- */
@@ -94,8 +90,8 @@ const App = () => {
         departments: selectedDepts,
         job_roles: selectedRoles
       })
-      .then(res => setOverviewData(res.data))
-      .catch(() => console.error("Stats fetch failed"));
+        .then(res => setOverviewData(res.data))
+        .catch(() => console.error("Stats fetch failed"));
     }
   }, [viewMode, selectedDepts, selectedRoles]);
 
@@ -155,21 +151,24 @@ const App = () => {
               ))}
             </div>
 
-            <div>
-              <h4 className="font-bold mb-2">Job Roles</h4>
-              <div className="max-h-40 overflow-y-auto">
-                {filters.job_roles.map(r => (
-                  <label key={r} className="flex gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedRoles.includes(r)}
-                      onChange={() => toggle(r, selectedRoles, setSelectedRoles)}
-                    />
-                    {r}
-                  </label>
-                ))}
+            {selectedDepts.length > 0 && (
+              <div>
+                <h4 className="font-bold mb-2">Job Roles</h4>
+                <div className="max-h-40 overflow-y-auto">
+                  {filters.job_roles.map(r => (
+                    <label key={r} className="flex gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedRoles.includes(r)}
+                        onChange={() => toggle(r, selectedRoles, setSelectedRoles)}
+                      />
+                      {r}
+                    </label>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
           </>
         )}
 
@@ -256,30 +255,31 @@ const App = () => {
       <main className="flex-1 p-8 overflow-y-auto">
 
         {/* -------- OVERVIEW DASHBOARD -------- */}
-        {viewMode === "overview" && overviewData && (
+        {viewMode === "overview" && selectedDepts.length > 0 && overviewData && (
+
           <>
             {/* KPIs */}
             <div className="grid grid-cols-4 gap-6 mb-8">
-  {[
-    ["Total Employees", overviewData.kpis.total_employees],
-    ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
-    ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
-    ["High Risk Employees", overviewData.kpis.high_risk_employees],
-  ].map(([l, v], i) => {
-    const cardColors = [
-      { bg: 'bg-red-50', text: 'text-red-700', label: 'text-red-500' },
-      { bg: 'bg-blue-50', text: 'text-blue-700', label: 'text-blue-500' },
-      { bg: 'bg-green-50', text: 'text-green-700', label: 'text-green-500' },
-      { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'text-yellow-500' },
-    ];
-    return (
-      <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`}>
-        <div className={`text-xs ${cardColors[i].label} uppercase`}>{l}</div>
-        <div className={`text-3xl font-black mt-2 ${cardColors[i].text}`}>{v}</div>
-      </div>
-    );
-  })}
-</div>
+              {[
+                ["Total Employees", overviewData.kpis.total_employees],
+                ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
+                ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
+                ["High Risk Employees", overviewData.kpis.high_risk_employees],
+              ].map(([l, v], i) => {
+                const cardColors = [
+                  { bg: 'bg-red-50', text: 'text-red-700', label: 'text-red-500' },
+                  { bg: 'bg-blue-50', text: 'text-blue-700', label: 'text-blue-500' },
+                  { bg: 'bg-green-50', text: 'text-green-700', label: 'text-green-500' },
+                  { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'text-yellow-500' },
+                ];
+                return (
+                  <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`}>
+                    <div className={`text-xs ${cardColors[i].label} uppercase`}>{l}</div>
+                    <div className={`text-3xl font-black mt-2 ${cardColors[i].text}`}>{v}</div>
+                  </div>
+                );
+              })}
+            </div>
 
 
             {/* CHART GRID */}
@@ -374,8 +374,8 @@ const App = () => {
                   </div>
                   <div className="text-8xl">
                     {predictionResult.riskPercentage > 70 ? <XCircle className="text-red-600" /> :
-                     predictionResult.riskPercentage > 40 ? <AlertTriangle className="text-yellow-600" /> :
-                     <CheckCircle className="text-green-600" />}
+                      predictionResult.riskPercentage > 40 ? <AlertTriangle className="text-yellow-600" /> :
+                        <CheckCircle className="text-green-600" />}
                   </div>
                 </div>
               </div>
@@ -389,11 +389,10 @@ const App = () => {
                   {predictionResult.keyDrivers.map((driver, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                       <span className="font-medium">{driver.factor}</span>
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        driver.impact === 'High' ? 'bg-red-100 text-red-800' :
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${driver.impact === 'High' ? 'bg-red-100 text-red-800' :
                         driver.impact === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
+                          'bg-green-100 text-green-800'
+                        }`}>
                         {driver.impact} Impact
                       </span>
                     </div>
@@ -446,7 +445,7 @@ const VerticalBar = ({ data }) => (
       <XAxis type="number" hide />
       <YAxis dataKey="value" type="category" width={150} />
       <Tooltip />
-      <Bar dataKey="count" fill="#ef4444" radius={[0,6,6,0]} />
+      <Bar dataKey="count" fill="#ef4444" radius={[0, 6, 6, 0]} />
     </BarChart>
   </ResponsiveContainer>
 );
@@ -457,7 +456,7 @@ const BarSimple = ({ data }) => (
       <XAxis dataKey="value" />
       <YAxis />
       <Tooltip />
-      <Bar dataKey="count" fill="#6366f1" radius={[6,6,0,0]} />
+      <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
     </BarChart>
   </ResponsiveContainer>
 );
