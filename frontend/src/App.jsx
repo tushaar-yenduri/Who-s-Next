@@ -11,30 +11,7 @@ import {
 /* ---------------- CONFIG ---------------- */
 const COLORS = ["#ef4444", "#6366f1", "#10b981", "#f59e0b", "#8b5cf6"];
 
-/* ---------------- MOCK DATA FOR PROFILE ---------------- */
-const MOCK_EMPLOYEES = [
-  { id: "EMP001", name: "John Doe", department: "Sales", jobRole: "Sales Executive", jobLevel: 2, yearsAtCompany: 3, yearsWithManager: 2, monthlyIncome: 5000 },
-  { id: "EMP002", name: "Jane Smith", department: "Research & Development", jobRole: "Research Scientist", jobLevel: 3, yearsAtCompany: 5, yearsWithManager: 3, monthlyIncome: 7000 },
-  { id: "EMP003", name: "Bob Johnson", department: "Human Resources", jobRole: "Human Resources", jobLevel: 1, yearsAtCompany: 2, yearsWithManager: 1, monthlyIncome: 4000 },
-];
 
-const MOCK_PREDICTION = {
-  riskPercentage: 72,
-  riskLabel: "High",
-  modelUsed: "Random Forest",
-  keyDrivers: [
-    { factor: "Frequent Overtime", impact: "High" },
-    { factor: "Low Job Satisfaction", impact: "Medium" },
-    { factor: "Low Work-Life Balance", impact: "High" },
-    { factor: "No Recent Promotion", impact: "Medium" },
-  ],
-  recommendations: [
-    "Reduce overtime hours to improve work-life balance",
-    "Schedule a performance discussion to address job satisfaction",
-    "Offer training or role rotation opportunities",
-    "Consider salary review or promotion in the next cycle",
-  ],
-};
 
 /* ---------------- APP ---------------- */
 const App = () => {
@@ -46,7 +23,8 @@ const App = () => {
 
   // Profile state
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [employeeDetails, setEmployeeDetails] = useState(null);
   const [riskFactors, setRiskFactors] = useState({
     overtime: false,
     lowJobSatisfaction: false,
@@ -94,6 +72,15 @@ const App = () => {
         .catch(() => console.error("Stats fetch failed"));
     }
   }, [viewMode, selectedDepts, selectedRoles]);
+
+  /* ---------------- LOAD EMPLOYEE LIST FROM BACKEND ---------------- */
+  useEffect(() => {
+    if (viewMode === "profile") {
+      axios.get("http://127.0.0.1:8000/employees")
+        .then(res => setEmployees(res.data))
+        .catch(() => console.error("Failed to load employees"));
+    }
+  }, [viewMode]);
 
 
 
@@ -185,19 +172,29 @@ const App = () => {
                   value={selectedEmployeeId}
                   onChange={(e) => {
                     setSelectedEmployeeId(e.target.value);
-                    const emp = MOCK_EMPLOYEES.find(emp => emp.id === e.target.value);
-                    setSelectedEmployee(emp || null);
-                    setPredictionResult(null);
+                    if (e.target.value) {
+                      axios.get(`http://127.0.0.1:8000/employee/${e.target.value}`)
+                        .then(res => {
+                          setEmployeeDetails(res.data);
+                          setPredictionResult(null);
+                        })
+                        .catch(() => console.error("Employee fetch failed"));
+                    } else {
+                      setEmployeeDetails(null);
+                      setPredictionResult(null);
+                    }
                   }}
                   className="w-full p-2 border rounded-lg"
                 >
                   <option value="">Select Employee</option>
-                  {MOCK_EMPLOYEES.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.id} - {emp.name}</option>
+                  {employees.map(emp => (
+                    <option key={emp.employee_id} value={emp.employee_id}>
+                      {emp.employee_id} - {emp.job_role}
+                    </option>
                   ))}
                 </select>
-                {selectedEmployee && (
-                  <p className="text-sm text-slate-600 mt-1">{selectedEmployee.name}</p>
+                {employeeDetails && (
+                  <p className="text-sm text-slate-600 mt-1">{employeeDetails.job_role}</p>
                 )}
               </div>
 
@@ -237,11 +234,37 @@ const App = () => {
 
               <button
                 onClick={() => {
-                  if (selectedEmployee && selectedModel) {
-                    setPredictionResult(MOCK_PREDICTION);
+                  if (employeeDetails && selectedModel) {
+                    axios.post("http://127.0.0.1:8000/predict", {
+                      employee_id: employeeDetails.employee_id,
+                      model_name: selectedModel.toLowerCase().replace(" ", "_"),
+                      what_if: {
+                        OverTime: riskFactors.overtime ? "Yes" : "No",
+                        JobSatisfaction: riskFactors.lowJobSatisfaction ? 1 : employeeDetails.job_satisfaction,
+                        WorkLifeBalance: riskFactors.lowWorkLifeBalance ? 1 : employeeDetails.work_life_balance,
+                      }
+                    })
+                    .then(res => {
+                      setPredictionResult({
+                        riskPercentage: res.data.risk_probability,
+                        riskLabel: res.data.risk_level,
+                        modelUsed: res.data.model_used,
+                        keyDrivers: [
+                          { factor: "Overtime", impact: riskFactors.overtime ? "High" : "Low" },
+                          { factor: "Job Satisfaction", impact: riskFactors.lowJobSatisfaction ? "High" : "Medium" },
+                          { factor: "Work-Life Balance", impact: riskFactors.lowWorkLifeBalance ? "High" : "Medium" },
+                        ],
+                        recommendations: [
+                          "Reduce overtime exposure",
+                          "Improve job satisfaction score",
+                          "Introduce flexible work policies",
+                        ]
+                      });
+                    })
+                    .catch(() => console.error("Prediction failed"));
                   }
                 }}
-                disabled={!selectedEmployee || !selectedModel}
+                disabled={!employeeDetails || !selectedModel}
                 className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
               >
                 Predict Attrition Risk
@@ -322,37 +345,37 @@ const App = () => {
         {viewMode === "profile" && (
           <div className="space-y-8">
             {/* Employee Summary Card */}
-            {selectedEmployee && (
+            {employeeDetails && (
               <div className="bg-white p-6 rounded-2xl shadow border">
                 <h3 className="text-lg font-bold mb-4">Employee Summary</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Employee ID</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.id}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.employee_id}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Department</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.department}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.department}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Job Role</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.jobRole}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.job_role}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Job Level</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.jobLevel}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.job_level}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Years at Company</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.yearsAtCompany}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.years_at_company}</div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500 uppercase">Years with Manager</div>
-                    <div className="text-lg font-semibold">{selectedEmployee.yearsWithManager}</div>
+                    <div className="text-lg font-semibold">{employeeDetails.years_with_manager}</div>
                   </div>
                   <div className="col-span-2 md:col-span-1">
                     <div className="text-xs text-slate-500 uppercase">Monthly Income</div>
-                    <div className="text-lg font-semibold">${selectedEmployee.monthlyIncome.toLocaleString()}</div>
+                    <div className="text-lg font-semibold">${employeeDetails.monthly_income.toLocaleString()}</div>
                   </div>
                 </div>
               </div>
@@ -416,7 +439,7 @@ const App = () => {
               </div>
             )}
 
-            {!selectedEmployee && (
+            {!employeeDetails && (
               <div className="text-center text-slate-400 mt-40">
                 Please select an employee from the sidebar to view their profile.
               </div>

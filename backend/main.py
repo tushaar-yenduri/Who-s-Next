@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Union
 import pandas as pd
+import numpy as np
+import joblib
 
 # --------------------------------------------------
 # APP SETUP
@@ -21,6 +23,16 @@ app.add_middleware(
 # LOAD DATA
 # --------------------------------------------------
 df = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
+
+# --------------------------------------------------
+# LOAD ML MODELS
+# --------------------------------------------------
+models = {
+    "logistic_regression": joblib.load("model_logreg_best.joblib"),
+    "random_forest": joblib.load("model_rf_best.joblib"),
+    "gradient_boosting": joblib.load("model_gb_best.joblib"),
+}
+feature_columns = joblib.load("model_feature_columns.joblib")
 
 # --------------------------------------------------
 # JOB ROLE MAPPING BY DEPARTMENT
@@ -44,11 +56,16 @@ JOB_ROLE_BY_DEPARTMENT = {
 }
 
 # --------------------------------------------------
-# REQUEST MODEL
+# REQUEST MODELS
 # --------------------------------------------------
 class StatsFilter(BaseModel):
     departments: Optional[List[str]] = None
     job_roles: Optional[List[str]] = None
+
+class PredictRequest(BaseModel):
+    employee_id: int
+    model_name: str = "random_forest"
+    what_if: Optional[Dict[str, Union[str, int]]] = {}
 
 # --------------------------------------------------
 # HELPER FUNCTIONS
@@ -62,6 +79,12 @@ def attrition_agg(data: pd.DataFrame, col: str):
         .rename(columns={"index": "name", col: "value"})
         .to_dict("records")
     )
+
+def build_feature_vector(row: pd.Series):
+    X = pd.DataFrame([row])
+    X = pd.get_dummies(X)
+    X = X.reindex(columns=feature_columns, fill_value=0)
+    return X
 
 # --------------------------------------------------
 # MAIN DASHBOARD ENDPOINT
@@ -127,8 +150,37 @@ def get_dashboard_stats(filters: StatsFilter):
 # --------------------------------------------------
 @app.get("/employees")
 def get_employees():
-    employees = df['EmployeeNumber'].unique().tolist()
-    return {"employees": [{"id": str(emp), "name": f"Employee {emp}"} for emp in employees[:20]]}  # Limit to 20 for demo
+    return (
+        df[["EmployeeNumber", "Department", "JobRole"]]
+        .drop_duplicates()
+        .rename(columns={"EmployeeNumber": "employee_id", "Department": "department", "JobRole": "job_role"})
+        .to_dict("records")
+    )
+
+# --------------------------------------------------
+# SINGLE EMPLOYEE DETAILS
+# --------------------------------------------------
+@app.get("/employee/{employee_id}")
+def get_employee(employee_id: int):
+    emp = df[df["EmployeeNumber"] == employee_id]
+
+    if emp.empty:
+        return {"error": "Employee not found"}
+
+    r = emp.iloc[0]
+
+    return {
+        "employee_id": employee_id,
+        "department": r["Department"],
+        "job_role": r["JobRole"],
+        "job_level": int(r["JobLevel"]),
+        "years_at_company": int(r["YearsAtCompany"]),
+        "years_with_manager": int(r["YearsWithCurrManager"]),
+        "monthly_income": float(r["MonthlyIncome"]),
+        "job_satisfaction": int(r["JobSatisfaction"]),
+        "work_life_balance": int(r["WorkLifeBalance"]),
+        "overtime": r["OverTime"],
+    }
 
 # --------------------------------------------------
 # FILTER OPTIONS (FOR UI DROPDOWNS)
@@ -148,4 +200,51 @@ def get_filter_options(departments: str = Query("")):
     return {
         "departments": sorted(JOB_ROLE_BY_DEPARTMENT.keys()),
         "job_roles": job_roles,
+    }
+
+# --------------------------------------------------
+# ML PREDICTION (REAL)
+# --------------------------------------------------
+@app.post("/predict")
+def predict_attrition(req: PredictRequest):
+
+    emp = df[df["EmployeeNumber"] == req.employee_id]
+    if emp.empty:
+        return {"error": "Employee not found"}
+
+    row = emp.iloc[0].copy()
+
+    # Apply what-if toggles
+    for feature, value in req.what_if.items():
+        if feature in row:
+            row[feature] = value
+
+    X = build_feature_vector(row)
+
+    # Handle different models
+    if req.model_name == "ensemble":
+        # Average predictions from all three models
+        probs = []
+        for model in models.values():
+            prob = model.predict_proba(X)[0][1]
+            probs.append(prob)
+        risk_prob = np.mean(probs)
+    else:
+        model_key = req.model_name.lower().replace(" ", "_")
+        if model_key not in models:
+            return {"error": f"Model {req.model_name} not found"}
+        risk_prob = models[model_key].predict_proba(X)[0][1]
+
+    if risk_prob >= 0.7:
+        risk_level = "High"
+    elif risk_prob >= 0.4:
+        risk_level = "Medium"
+    else:
+        risk_level = "Low"
+
+    return {
+        "employee_id": req.employee_id,
+        "risk_probability": round(float(risk_prob) * 100, 2),
+        "risk_level": risk_level,
+        "model_used": req.model_name,
     }
