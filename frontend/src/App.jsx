@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 import {
-  User, LayoutDashboard, Filter, Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle
+  User, LayoutDashboard, Filter, Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Search
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
@@ -33,6 +33,7 @@ const App = () => {
   });
   const [selectedModel, setSelectedModel] = useState("");
   const [predictionResult, setPredictionResult] = useState(null);
+  const [topRiskEmployees, setTopRiskEmployees] = useState([]);
 
   /* ---------------- LOAD FILTER OPTIONS ---------------- */
   useEffect(() => {
@@ -79,6 +80,15 @@ const App = () => {
       axios.get("http://127.0.0.1:8000/employees")
         .then(res => setEmployees(res.data))
         .catch(() => console.error("Failed to load employees"));
+    }
+  }, [viewMode]);
+
+  /* ---------------- FETCH TOP RISK EMPLOYEES ---------------- */
+  useEffect(() => {
+    if (viewMode === "overview") {
+      axios.get("http://127.0.0.1:8000/top_risk_employees")
+        .then(res => setTopRiskEmployees(res.data))
+        .catch(() => console.error("Failed to load top risk employees"));
     }
   }, [viewMode]);
 
@@ -168,31 +178,33 @@ const App = () => {
             <div className="space-y-4">
               <div>
                 <h4 className="font-bold mb-2">Employee Selector</h4>
-                <select
-                  value={selectedEmployeeId}
-                  onChange={(e) => {
-                    setSelectedEmployeeId(e.target.value);
-                    if (e.target.value) {
-                      axios.get(`http://127.0.0.1:8000/employee/${e.target.value}`)
-                        .then(res => {
-                          setEmployeeDetails(res.data);
-                          setPredictionResult(null);
-                        })
-                        .catch(() => console.error("Employee fetch failed"));
-                    } else {
-                      setEmployeeDetails(null);
-                      setPredictionResult(null);
-                    }
-                  }}
-                  className="w-full p-2 border rounded-lg"
-                >
-                  <option value="">Select Employee</option>
-                  {employees.map(emp => (
-                    <option key={emp.employee_id} value={emp.employee_id}>
-                      {emp.employee_id} - {emp.job_role}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    placeholder="Enter Employee ID"
+                    className="flex-1 p-2 border rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={() => {
+                      if (selectedEmployeeId) {
+                        axios.get(`http://127.0.0.1:8000/employee/${selectedEmployeeId}`)
+                          .then(res => {
+                            setEmployeeDetails(res.data);
+                            setPredictionResult(null);
+                          })
+                          .catch(() => console.error("Employee fetch failed"));
+                      } else {
+                        setEmployeeDetails(null);
+                        setPredictionResult(null);
+                      }
+                    }}
+                    className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    <Search size={16} />
+                  </button>
+                </div>
                 {employeeDetails && (
                   <p className="text-sm text-slate-600 mt-1">{employeeDetails.job_role}</p>
                 )}
@@ -304,6 +316,41 @@ const App = () => {
               })}
             </div>
 
+            {/* Top Risk Employees Carousel */}
+            {topRiskEmployees.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
+                <div className="flex gap-4 overflow-x-auto pb-4">
+                  {topRiskEmployees.map((emp, index) => (
+                    <div key={emp.employee_id} className="bg-white p-4 rounded-2xl shadow border min-w-64 flex-shrink-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-semibold text-slate-500">#{index + 1}</span>
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                          emp.risk_level === 'High' ? 'bg-red-100 text-red-800' :
+                          emp.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {emp.risk_level} Risk
+                        </span>
+                      </div>
+                      <div className="text-2xl font-black mb-2" style={{
+                        color: emp.risk_probability > 70 ? '#dc2626' : emp.risk_probability > 40 ? '#d97706' : '#16a34a'
+                      }}>
+                        {emp.risk_probability}%
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <div><strong>ID:</strong> {emp.employee_id}</div>
+                        <div><strong>Department:</strong> {emp.department}</div>
+                        <div><strong>Role:</strong> {emp.job_role}</div>
+                        <div><strong>Level:</strong> {emp.job_level}</div>
+                        <div><strong>Tenure:</strong> {emp.years_at_company} years</div>
+                        <div><strong>Income:</strong> ${emp.monthly_income.toLocaleString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* CHART GRID */}
             <div className="grid grid-cols-2 gap-6">

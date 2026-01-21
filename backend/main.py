@@ -203,6 +203,35 @@ def get_filter_options(departments: str = Query("")):
     }
 
 # --------------------------------------------------
+# TOP RISK EMPLOYEES
+# --------------------------------------------------
+@app.get("/top_risk_employees")
+def get_top_risk_employees(limit: int = 5):
+    # Use ensemble model for predictions
+    risk_scores = []
+    for idx, row in df.iterrows():
+        X = build_feature_vector(row)
+        probs = []
+        for model in models.values():
+            prob = model.predict_proba(X)[0][1]
+            probs.append(prob)
+        risk_prob = np.mean(probs)
+        risk_scores.append({
+            "employee_id": int(row["EmployeeNumber"]),
+            "department": row["Department"],
+            "job_role": row["JobRole"],
+            "job_level": int(row["JobLevel"]),
+            "years_at_company": int(row["YearsAtCompany"]),
+            "monthly_income": float(row["MonthlyIncome"]),
+            "risk_probability": round(float(risk_prob) * 100, 2),
+            "risk_level": "High" if risk_prob >= 0.7 else "Medium" if risk_prob >= 0.4 else "Low"
+        })
+
+    # Sort by risk probability descending and take top limit
+    risk_scores.sort(key=lambda x: x["risk_probability"], reverse=True)
+    return risk_scores[:limit]
+
+# --------------------------------------------------
 # ML PREDICTION (REAL)
 # --------------------------------------------------
 @app.post("/predict")
