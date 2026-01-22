@@ -146,6 +146,10 @@ const App = () => {
                   {d}
                 </label>
               ))}
+              <div className="flex gap-2 mt-4">
+                <button className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200" onClick={() => setSelectedDepts(filters.departments)}>Select All</button>
+                <button className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200" onClick={() => setSelectedDepts([])}>Remove All</button>
+              </div>
             </div>
 
             {selectedDepts.length > 0 && (
@@ -162,6 +166,10 @@ const App = () => {
                       {r}
                     </label>
                   ))}
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200" onClick={() => setSelectedRoles(filters.job_roles)}>Select All</button>
+                  <button className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200" onClick={() => setSelectedRoles([])}>Remove All</button>
                 </div>
               </div>
             )}
