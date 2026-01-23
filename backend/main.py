@@ -79,6 +79,30 @@ def attrition_agg(data: pd.DataFrame, col: str):
         .rename(columns={"index": "name", col: "value"})
         .to_dict("records")
     )
+def get_top_risk_employees(data: pd.DataFrame, n=5):
+    high_risk = data[data["Attrition"] == "Yes"].copy()
+
+    high_risk = high_risk.sort_values(
+        by=["JobSatisfaction", "YearsAtCompany"],
+        ascending=[True, True]
+    )
+
+    result = high_risk.head(n)
+
+    return [
+        {
+            "employee_id": int(r["EmployeeNumber"]),
+            "department": r["Department"],
+            "job_role": r["JobRole"],
+            "job_level": int(r["JobLevel"]),
+            "years_at_company": int(r["YearsAtCompany"]),
+            "monthly_income": float(r["MonthlyIncome"]),
+            "risk_probability": 85,   # historical proxy
+            "risk_level": "High"
+        }
+        for _, r in result.iterrows()
+    ]
+
 
 def build_feature_vector(row: pd.Series):
     X = pd.DataFrame([row])

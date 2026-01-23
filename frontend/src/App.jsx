@@ -84,13 +84,16 @@ const App = () => {
   }, [viewMode]);
 
   /* ---------------- FETCH TOP RISK EMPLOYEES ---------------- */
-  useEffect(() => {
-    if (viewMode === "overview") {
-      axios.get("http://127.0.0.1:8000/top_risk_employees")
-        .then(res => setTopRiskEmployees(res.data))
-        .catch(() => console.error("Failed to load top risk employees"));
-    }
-  }, [viewMode]);
+useEffect(() => {
+  axios.get("http://127.0.0.1:8000/top_risk_employees")
+    .then(res => {
+      setTopRiskEmployees(res.data);
+    })
+    .catch(() => {
+      setTopRiskEmployees([]);
+    });
+}, []); // 🔴 EMPTY dependency array
+
 
 
 
@@ -298,7 +301,7 @@ const App = () => {
       <main className="flex-1 p-8 overflow-y-auto">
 
         {/* -------- OVERVIEW DASHBOARD -------- */}
-        {viewMode === "overview" && selectedDepts.length > 0 && overviewData && (
+        {viewMode === "overview" && overviewData && (
 
           <>
             {/* KPIs */}
@@ -325,7 +328,8 @@ const App = () => {
             </div>
 
             {/* Top Risk Employees Carousel */}
-            {topRiskEmployees.length > 0 && (
+            {Array.isArray(topRiskEmployees) && topRiskEmployees.length > 0 && (
+
               <div className="mb-8">
                 <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
                 <div className="flex gap-4 overflow-x-auto pb-4">
