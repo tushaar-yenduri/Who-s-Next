@@ -25,6 +25,7 @@ const App = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
   const [employees, setEmployees] = useState([]);
   const [employeeDetails, setEmployeeDetails] = useState(null);
+  const [employeeError, setEmployeeError] = useState("");
   const [riskFactors, setRiskFactors] = useState({
     overtime: false,
     lowJobSatisfaction: false,
@@ -205,12 +206,23 @@ useEffect(() => {
                       if (selectedEmployeeId) {
                         axios.get(`http://127.0.0.1:8000/employee/${selectedEmployeeId}`)
                           .then(res => {
-                            setEmployeeDetails(res.data);
+                            if (res.data.error) {
+                              setEmployeeError(res.data.error);
+                              setEmployeeDetails(null);
+                            } else {
+                              setEmployeeDetails(res.data);
+                              setEmployeeError("");
+                            }
                             setPredictionResult(null);
                           })
-                          .catch(() => console.error("Employee fetch failed"));
+                          .catch(() => {
+                            setEmployeeError("Failed to fetch employee data");
+                            setEmployeeDetails(null);
+                            setPredictionResult(null);
+                          });
                       } else {
                         setEmployeeDetails(null);
+                        setEmployeeError("");
                         setPredictionResult(null);
                       }
                     }}
@@ -219,6 +231,9 @@ useEffect(() => {
                     <Search size={16} />
                   </button>
                 </div>
+                {employeeError && (
+                  <p className="text-sm text-red-600 mt-1">{employeeError}</p>
+                )}
                 {employeeDetails && (
                   <p className="text-sm text-slate-600 mt-1">{employeeDetails.job_role}</p>
                 )}
