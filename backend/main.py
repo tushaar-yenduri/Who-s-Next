@@ -114,10 +114,6 @@ def build_feature_vector(row: pd.Series):
 # MAIN DASHBOARD ENDPOINT
 # --------------------------------------------------
 @app.post("/stats")
-@app.get("/top_risk_employees")
-def top_risk_employees():
-    return get_top_risk_employees(df, 5)
-
 def get_dashboard_stats(filters: StatsFilter):
 
     filtered_df = df.copy()
