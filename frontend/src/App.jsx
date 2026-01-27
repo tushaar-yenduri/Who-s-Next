@@ -30,6 +30,9 @@ const App = () => {
     lowJobSatisfaction: false,
     lowWorkLifeBalance: false,
     noRecentPromotion: false,
+    lowMonthlyIncome: false,
+    longTenure: false,
+    lowYearsWithManager: false,
   });
   const [selectedModel, setSelectedModel] = useState("");
   const [predictionResult, setPredictionResult] = useState(null);
@@ -265,6 +268,9 @@ useEffect(() => {
                         OverTime: riskFactors.overtime ? "Yes" : "No",
                         JobSatisfaction: riskFactors.lowJobSatisfaction ? 1 : employeeDetails.job_satisfaction,
                         WorkLifeBalance: riskFactors.lowWorkLifeBalance ? 1 : employeeDetails.work_life_balance,
+                        MonthlyIncome: riskFactors.lowMonthlyIncome ? 2000 : employeeDetails.monthly_income,
+                        YearsAtCompany: riskFactors.longTenure ? 20 : employeeDetails.years_at_company,
+                        YearsWithCurrManager: riskFactors.lowYearsWithManager ? 0 : employeeDetails.years_with_manager,
                       }
                     })
                     .then(res => {
@@ -276,11 +282,18 @@ useEffect(() => {
                           { factor: "Overtime", impact: riskFactors.overtime ? "High" : "Low" },
                           { factor: "Job Satisfaction", impact: riskFactors.lowJobSatisfaction ? "High" : "Medium" },
                           { factor: "Work-Life Balance", impact: riskFactors.lowWorkLifeBalance ? "High" : "Medium" },
+                          { factor: "Monthly Income", impact: riskFactors.lowMonthlyIncome ? "High" : "Low" },
+                          { factor: "Years at Company", impact: riskFactors.longTenure ? "High" : "Low" },
+                          { factor: "Years with Manager", impact: riskFactors.lowYearsWithManager ? "High" : "Low" },
+                          { factor: "Recent Promotion", impact: riskFactors.noRecentPromotion ? "High" : "Low" },
                         ],
                         recommendations: [
                           "Reduce overtime exposure",
                           "Improve job satisfaction score",
                           "Introduce flexible work policies",
+                          "Increase monthly income",
+                          "Address long tenure concerns",
+                          "Improve manager-employee relationships",
                         ]
                       });
                     })
