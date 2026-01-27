@@ -110,6 +110,74 @@ def build_feature_vector(row: pd.Series):
     X = X.reindex(columns=feature_columns, fill_value=0)
     return X
 
+def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]):
+    recommendations = []
+    key_drivers = []
+
+    # Apply what_if to row for evaluation
+    eval_row = row.copy()
+    for feature, value in what_if.items():
+        if feature in eval_row:
+            eval_row[feature] = value
+
+    # Overtime
+    overtime = eval_row.get("OverTime", "No")
+    if overtime == "Yes":
+        recommendations.append("Reduce overtime hours to improve work-life balance.")
+        key_drivers.append({"factor": "Overtime", "impact": "High"})
+    else:
+        key_drivers.append({"factor": "Overtime", "impact": "Low"})
+
+    # Job Satisfaction
+    job_sat = eval_row.get("JobSatisfaction", 3)
+    if job_sat <= 2:
+        recommendations.append(f"Improve job satisfaction from current level {job_sat} to at least 3 through engagement initiatives.")
+        key_drivers.append({"factor": "Job Satisfaction", "impact": "High" if job_sat == 1 else "Medium"})
+    else:
+        key_drivers.append({"factor": "Job Satisfaction", "impact": "Low"})
+
+    # Work Life Balance
+    wlb = eval_row.get("WorkLifeBalance", 3)
+    if wlb <= 2:
+        recommendations.append(f"Enhance work-life balance from current level {wlb} to at least 3 with flexible scheduling.")
+        key_drivers.append({"factor": "Work-Life Balance", "impact": "High" if wlb == 1 else "Medium"})
+    else:
+        key_drivers.append({"factor": "Work-Life Balance", "impact": "Low"})
+
+    # Monthly Income
+    income = eval_row.get("MonthlyIncome", 5000)
+    if income < 4000:  # Assuming low threshold
+        recommendations.append(f"Increase monthly income from ${income} to at least $4000 to boost retention.")
+        key_drivers.append({"factor": "Monthly Income", "impact": "High"})
+    else:
+        key_drivers.append({"factor": "Monthly Income", "impact": "Low"})
+
+    # Years at Company (Tenure)
+    tenure = eval_row.get("YearsAtCompany", 5)
+    if tenure > 10:
+        recommendations.append(f"Address long tenure of {tenure} years with career development opportunities.")
+        key_drivers.append({"factor": "Years at Company", "impact": "High"})
+    else:
+        key_drivers.append({"factor": "Years at Company", "impact": "Low"})
+
+    # Years with Manager
+    years_mgr = eval_row.get("YearsWithCurrManager", 3)
+    if years_mgr < 2:
+        recommendations.append(f"Improve manager-employee relationship; current tenure with manager is {years_mgr} years.")
+        key_drivers.append({"factor": "Years with Manager", "impact": "High"})
+    else:
+        key_drivers.append({"factor": "Years with Manager", "impact": "Low"})
+
+    # Recent Promotion (assuming if YearsSinceLastPromotion > 5, it's an issue)
+    years_last_promo = eval_row.get("YearsSinceLastPromotion", 2)
+    if years_last_promo > 5:
+        recommendations.append(f"Provide recent promotion opportunities; last promotion was {years_last_promo} years ago.")
+        key_drivers.append({"factor": "Recent Promotion", "impact": "High"})
+    else:
+        key_drivers.append({"factor": "Recent Promotion", "impact": "Low"})
+
+    return recommendations, key_drivers
+
 # --------------------------------------------------
 # MAIN DASHBOARD ENDPOINT
 # --------------------------------------------------
@@ -296,9 +364,14 @@ def predict_attrition(req: PredictRequest):
     else:
         risk_level = "Low"
 
+    # Generate recommendations and key drivers
+    recommendations, key_drivers = generate_recommendations(row, req.what_if)
+
     return {
         "employee_id": req.employee_id,
         "risk_probability": round(float(risk_prob) * 100, 2),
         "risk_level": risk_level,
         "model_used": req.model_name,
+        "key_drivers": key_drivers,
+        "recommendations": recommendations,
     }

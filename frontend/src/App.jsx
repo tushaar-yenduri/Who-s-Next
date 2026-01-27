@@ -293,23 +293,8 @@ useEffect(() => {
                         riskPercentage: res.data.risk_probability,
                         riskLabel: res.data.risk_level,
                         modelUsed: res.data.model_used,
-                        keyDrivers: [
-                          { factor: "Overtime", impact: riskFactors.overtime ? "High" : "Low" },
-                          { factor: "Job Satisfaction", impact: riskFactors.lowJobSatisfaction ? "High" : "Medium" },
-                          { factor: "Work-Life Balance", impact: riskFactors.lowWorkLifeBalance ? "High" : "Medium" },
-                          { factor: "Monthly Income", impact: riskFactors.lowMonthlyIncome ? "High" : "Low" },
-                          { factor: "Years at Company", impact: riskFactors.longTenure ? "High" : "Low" },
-                          { factor: "Years with Manager", impact: riskFactors.lowYearsWithManager ? "High" : "Low" },
-                          { factor: "Recent Promotion", impact: riskFactors.noRecentPromotion ? "High" : "Low" },
-                        ],
-                        recommendations: [
-                          "Reduce overtime exposure",
-                          "Improve job satisfaction score",
-                          "Introduce flexible work policies",
-                          "Increase monthly income",
-                          "Address long tenure concerns",
-                          "Improve manager-employee relationships",
-                        ]
+                        keyDrivers: res.data.key_drivers,
+                        recommendations: res.data.recommendations
                       });
                     })
                     .catch(() => console.error("Prediction failed"));
