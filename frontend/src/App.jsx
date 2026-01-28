@@ -367,21 +367,25 @@ useEffect(() => {
             {/* KPIs */}
             <div className="grid grid-cols-4 gap-6 mb-8">
               {[
-                ["Total Employees", overviewData.kpis.total_employees],
-                ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
-                ["Avg Satisfaction", `${overviewData.kpis.avg_satisfaction} / 5`],
-                ["High Risk Employees", overviewData.kpis.high_risk_employees],
-              ].map(([l, v], i) => {
+                { label: "Total Employees", value: overviewData.kpis.total_employees, icon: User },
+                { label: "Attrition Rate", value: overviewData.kpis.attrition_rate + "%", icon: TrendingUp },
+                { label: "Avg Satisfaction", value: `${overviewData.kpis.avg_satisfaction} / 5`, icon: CheckCircle },
+                { label: "High Risk Employees", value: overviewData.kpis.high_risk_employees, icon: AlertTriangle },
+              ].map((item, i) => {
                 const cardColors = [
                   { bg: 'bg-red-50', text: 'text-red-700', label: 'text-red-500' },
                   { bg: 'bg-blue-50', text: 'text-blue-700', label: 'text-blue-500' },
                   { bg: 'bg-green-50', text: 'text-green-700', label: 'text-green-500' },
                   { bg: 'bg-yellow-50', text: 'text-yellow-700', label: 'text-yellow-500' },
                 ];
+                const IconComponent = item.icon;
                 return (
                   <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`}>
-                    <div className={`text-xs ${cardColors[i].label} uppercase`}>{l}</div>
-                    <div className={`text-3xl font-black mt-2 ${cardColors[i].text}`}>{v}</div>
+                    <div className={`flex items-center gap-2 mb-3`}>
+                      <IconComponent className={`text-lg ${cardColors[i].label}`} />
+                      <div className={`text-xs ${cardColors[i].label} uppercase font-medium`}>{item.label}</div>
+                    </div>
+                    <div className={`text-3xl font-black ${cardColors[i].text}`}>{item.value}</div>
                   </div>
                 );
               })}
