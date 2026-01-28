@@ -37,6 +37,7 @@ const App = () => {
   });
   const [selectedModel, setSelectedModel] = useState("");
   const [predictionResult, setPredictionResult] = useState(null);
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const [topRiskEmployees, setTopRiskEmployees] = useState([]);
 
   /* ---------------- LOAD FILTER OPTIONS ---------------- */
@@ -242,7 +243,7 @@ useEffect(() => {
                         axios.get(`http://127.0.0.1:8000/employee/${selectedEmployeeId}`)
                           .then(res => {
                             if (res.data.error) {
-                              setEmployeeError(res.data.error);
+                              setEmployeeError("Employee not found. Please check the ID.");
                               setEmployeeDetails(null);
                             } else {
                               setEmployeeDetails(res.data);
@@ -251,7 +252,7 @@ useEffect(() => {
                             setPredictionResult(null);
                           })
                           .catch(() => {
-                            setEmployeeError("Failed to fetch employee data");
+                            setEmployeeError("Employee not found. Please check the ID.");
                             setEmployeeDetails(null);
                             setPredictionResult(null);
                           });
@@ -311,6 +312,7 @@ useEffect(() => {
               <button
                 onClick={() => {
                   if (employeeDetails && selectedModel) {
+                    setIsLoadingPrediction(true);
                     axios.post("http://127.0.0.1:8000/predict", {
                       employee_id: employeeDetails.employee_id,
                       model_name: selectedModel.toLowerCase().replace(" ", "_"),
@@ -331,14 +333,18 @@ useEffect(() => {
                         keyDrivers: res.data.key_drivers,
                         recommendations: res.data.recommendations
                       });
+                      setIsLoadingPrediction(false);
                     })
-                    .catch(() => console.error("Prediction failed"));
+                    .catch(() => {
+                      console.error("Prediction failed");
+                      setIsLoadingPrediction(false);
+                    });
                   }
                 }}
-                disabled={!employeeDetails || !selectedModel}
+                disabled={!employeeDetails || !selectedModel || isLoadingPrediction}
                 className="w-full bg-indigo-600 text-white py-3 rounded-xl font-medium disabled:bg-slate-300 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
               >
-                Predict Attrition Risk
+                {isLoadingPrediction ? "Predicting..." : "Predict Attrition Risk"}
               </button>
             </div>
           </>
@@ -504,36 +510,43 @@ useEffect(() => {
               </div>
             )}
 
-            {/* Attrition Risk Result */}
-            {predictionResult && (
+            {/* Attrition Risk Assessment */}
+            {isLoadingPrediction && (
+              <div className="bg-white p-6 rounded-2xl shadow border">
+                <h3 className="text-lg font-bold mb-4">Attrition Risk Assessment</h3>
+                <div className="animate-pulse flex items-center justify-center">
+                  <div className="w-48 h-32 bg-slate-200 rounded"></div>
+                </div>
+              </div>
+            )}
+            {predictionResult && !isLoadingPrediction && (
               <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Attrition Risk Assessment</h3>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-6xl font-black mb-2" style={{
-                      color: predictionResult.riskPercentage > 70 ? '#dc2626' : predictionResult.riskPercentage > 40 ? '#d97706' : '#16a34a'
-                    }}>
-                      {predictionResult.riskPercentage}%
-                    </div>
-                    <div className="text-lg font-semibold mb-1">{predictionResult.riskLabel} Risk</div>
-                    <div className="text-sm text-slate-500">Model: {predictionResult.modelUsed}</div>
-                  </div>
-                  <div className="text-8xl">
-                    {predictionResult.riskPercentage > 70 ? <XCircle className="text-red-600" /> :
-                      predictionResult.riskPercentage > 40 ? <AlertTriangle className="text-yellow-600" /> :
-                        <CheckCircle className="text-green-600" />}
-                  </div>
+                <div className="flex flex-col items-center space-y-2">
+                  <SemiCircularGauge riskPercentage={predictionResult.riskPercentage} />
+                  <div className="text-lg font-semibold">{predictionResult.riskLabel} Risk</div>
+                  <div className="text-sm text-slate-500">Model: {predictionResult.modelUsed}</div>
                 </div>
               </div>
             )}
 
             {/* Key Risk Drivers */}
-            {predictionResult && (
+            {isLoadingPrediction && (
+              <div className="bg-white p-6 rounded-2xl shadow border">
+                <h3 className="text-lg font-bold mb-4">Key Risk Drivers</h3>
+                <div className="animate-pulse space-y-3">
+                  <div className="h-12 bg-slate-200 rounded"></div>
+                  <div className="h-12 bg-slate-200 rounded"></div>
+                  <div className="h-12 bg-slate-200 rounded"></div>
+                </div>
+              </div>
+            )}
+            {predictionResult && !isLoadingPrediction && (
               <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Key Risk Drivers</h3>
                 <div className="space-y-3">
                   {predictionResult.keyDrivers.map((driver, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
                       <span className="font-medium">{driver.factor}</span>
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${driver.impact === 'High' ? 'bg-red-100 text-red-800' :
                         driver.impact === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -564,7 +577,7 @@ useEffect(() => {
 
             {!employeeDetails && (
               <div className="text-center text-slate-400 mt-40">
-                Please select an employee from the sidebar to view their profile.
+                Select an employee to view risk analysis.
               </div>
             )}
           </div>
@@ -575,6 +588,65 @@ useEffect(() => {
 };
 
 /* ---------------- REUSABLE COMPONENTS ---------------- */
+
+const SemiCircularGauge = ({ riskPercentage }) => {
+  const radius = 80;
+  const strokeWidth = 12;
+  const circumference = Math.PI * radius;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (riskPercentage / 100) * circumference;
+
+  const color = riskPercentage > 70 ? '#dc2626' : riskPercentage > 40 ? '#d97706' : '#16a34a';
+
+  return (
+    <svg
+  width="220"
+  height="140"
+  viewBox="0 0 220 140"
+  className="mx-auto block"
+>
+  {/* Background semi-circle */}
+  <path
+    d={`
+      M 30 110
+      A 80 80 0 0 1 190 110
+    `}
+    fill="none"
+    stroke="#e2e8f0"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+  />
+
+  {/* Filled semi-circle */}
+  <path
+    d={`
+      M 30 110
+      A 80 80 0 0 1 190 110
+    `}
+    fill="none"
+    stroke={color}
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeDasharray={strokeDasharray}
+    strokeDashoffset={strokeDashoffset}
+  />
+
+  {/* Percentage text inside the semi-circle */}
+  <text
+    x="110"
+    y="110"
+    textAnchor="middle"
+    dominantBaseline="middle"
+    fontSize="24"
+    fontWeight="bold"
+    fill={color}
+  >
+    {riskPercentage}%
+  </text>
+</svg>
+
+  );
+};
 
 const ChartCard = ({ title, children }) => (
   <div className="bg-white p-6 rounded-2xl shadow border flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
