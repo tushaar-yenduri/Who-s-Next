@@ -380,7 +380,7 @@ useEffect(() => {
                 ];
                 const IconComponent = item.icon;
                 return (
-                  <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`}>
+                  <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`} title={`${item.label}: ${item.value} - ${item.label === 'Total Employees' ? 'Total number of employees in the selected filters' : item.label === 'Attrition Rate' ? 'Percentage of employees who left the company' : item.label === 'Avg Satisfaction' ? 'Average job satisfaction score out of 5' : 'Number of employees at high risk of attrition'}`}>
                     <div className={`flex items-center gap-2 mb-3`}>
                       <IconComponent className={`text-lg ${cardColors[i].label}`} />
                       <div className={`text-xs ${cardColors[i].label} uppercase font-medium`}>{item.label}</div>
@@ -398,7 +398,7 @@ useEffect(() => {
                 <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
                 <div className="flex gap-4 overflow-x-auto pb-4">
                   {topRiskEmployees.map((emp, index) => (
-                    <div key={emp.employee_id} className="bg-white p-4 rounded-2xl shadow border min-w-64 flex-shrink-0">
+                    <div key={emp.employee_id} className="bg-white p-4 rounded-2xl shadow border min-w-64 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-slate-500">#{index + 1}</span>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -469,7 +469,7 @@ useEffect(() => {
           <div className="space-y-8">
             {/* Employee Summary Card */}
             {employeeDetails && (
-              <div className="bg-white p-6 rounded-2xl shadow border">
+              <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Employee Summary</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
@@ -506,7 +506,7 @@ useEffect(() => {
 
             {/* Attrition Risk Result */}
             {predictionResult && (
-              <div className="bg-white p-6 rounded-2xl shadow border">
+              <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Attrition Risk Assessment</h3>
                 <div className="flex items-center justify-between">
                   <div>
@@ -529,7 +529,7 @@ useEffect(() => {
 
             {/* Key Risk Drivers */}
             {predictionResult && (
-              <div className="bg-white p-6 rounded-2xl shadow border">
+              <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Key Risk Drivers</h3>
                 <div className="space-y-3">
                   {predictionResult.keyDrivers.map((driver, index) => (
@@ -549,7 +549,7 @@ useEffect(() => {
 
             {/* Improvement Recommendations */}
             {predictionResult && (
-              <div className="bg-white p-6 rounded-2xl shadow border">
+              <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Improvement Recommendations</h3>
                 <ul className="space-y-2">
                   {predictionResult.recommendations.map((rec, index) => (
@@ -577,7 +577,7 @@ useEffect(() => {
 /* ---------------- REUSABLE COMPONENTS ---------------- */
 
 const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-6 rounded-2xl shadow border flex flex-col">
+  <div className="bg-white p-6 rounded-2xl shadow border flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
     <h4 className="font-bold mb-4">{title}</h4>
     <div className="flex-1">
       {children}
