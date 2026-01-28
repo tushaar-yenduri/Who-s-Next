@@ -32,7 +32,10 @@ models = {
     "random_forest": joblib.load("model_rf_best.joblib"),
     "gradient_boosting": joblib.load("model_gb_best.joblib"),
 }
+rf_model = joblib.load("model_rf_best.joblib")
 feature_columns = joblib.load("model_feature_columns.joblib")
+TOP_RISK_CACHE = None
+
 
 # --------------------------------------------------
 # JOB ROLE MAPPING BY DEPARTMENT
@@ -79,29 +82,8 @@ def attrition_agg(data: pd.DataFrame, col: str):
         .rename(columns={"index": "name", col: "value"})
         .to_dict("records")
     )
-def get_top_risk_employees(data: pd.DataFrame, n=5):
-    high_risk = data[data["Attrition"] == "Yes"].copy()
 
-    high_risk = high_risk.sort_values(
-        by=["JobSatisfaction", "YearsAtCompany"],
-        ascending=[True, True]
-    )
 
-    result = high_risk.head(n)
-
-    return [
-        {
-            "employee_id": int(r["EmployeeNumber"]),
-            "department": r["Department"],
-            "job_role": r["JobRole"],
-            "job_level": int(r["JobLevel"]),
-            "years_at_company": int(r["YearsAtCompany"]),
-            "monthly_income": float(r["MonthlyIncome"]),
-            "risk_probability": 85,   # historical proxy
-            "risk_level": "High"
-        }
-        for _, r in result.iterrows()
-    ]
 
 
 def build_feature_vector(row: pd.Series):
@@ -178,9 +160,41 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
 
     return recommendations, key_drivers
 
+
+
+
 # --------------------------------------------------
 # MAIN DASHBOARD ENDPOINT
 # --------------------------------------------------
+def compute_top_risk_employees(limit=5):
+    risk_scores = []
+
+    for _, row in df.iterrows():
+        X = pd.DataFrame([row])
+        X = pd.get_dummies(X)
+        X = X.reindex(columns=feature_columns, fill_value=0)
+
+        prob = rf_model.predict_proba(X)[0][1]
+
+        risk_scores.append({
+            "employee_id": int(row["EmployeeNumber"]),
+            "department": row["Department"],
+            "job_role": row["JobRole"],
+            "job_level": int(row["JobLevel"]),
+            "years_at_company": int(row["YearsAtCompany"]),
+            "monthly_income": float(row["MonthlyIncome"]),
+            "risk_probability": round(float(prob) * 100, 2),
+            "risk_level": (
+                "High" if prob >= 0.7 else
+                "Medium" if prob >= 0.4 else
+                "Low"
+            )
+        })
+
+    risk_scores.sort(key=lambda x: x["risk_probability"], reverse=True)
+    return risk_scores[:limit]
+TOP_RISK_CACHE = None
+
 @app.post("/stats")
 def get_dashboard_stats(filters: StatsFilter):
 
@@ -300,29 +314,13 @@ def get_filter_options(departments: str = Query("")):
 # --------------------------------------------------
 @app.get("/top_risk_employees")
 def get_top_risk_employees(limit: int = 5):
-    # Use ensemble model for predictions
-    risk_scores = []
-    for idx, row in df.iterrows():
-        X = build_feature_vector(row)
-        probs = []
-        for model in models.values():
-            prob = model.predict_proba(X)[0][1]
-            probs.append(prob)
-        risk_prob = np.mean(probs)
-        risk_scores.append({
-            "employee_id": int(row["EmployeeNumber"]),
-            "department": row["Department"],
-            "job_role": row["JobRole"],
-            "job_level": int(row["JobLevel"]),
-            "years_at_company": int(row["YearsAtCompany"]),
-            "monthly_income": float(row["MonthlyIncome"]),
-            "risk_probability": round(float(risk_prob) * 100, 2),
-            "risk_level": "High" if risk_prob >= 0.7 else "Medium" if risk_prob >= 0.4 else "Low"
-        })
+    global TOP_RISK_CACHE
 
-    # Sort by risk probability descending and take top limit
-    risk_scores.sort(key=lambda x: x["risk_probability"], reverse=True)
-    return risk_scores[:limit]
+    if TOP_RISK_CACHE is None:
+        TOP_RISK_CACHE = compute_top_risk_employees(limit)
+
+    return TOP_RISK_CACHE
+
 
 # --------------------------------------------------
 # ML PREDICTION (REAL)
