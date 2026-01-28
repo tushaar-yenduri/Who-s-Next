@@ -51,32 +51,63 @@ const App = () => {
   }, []);
 
   /* ---------------- UPDATE JOB ROLES WHEN DEPARTMENTS CHANGE ---------------- */
-  useEffect(() => {
-    if (selectedDepts.length > 0) {
-      axios.get("http://127.0.0.1:8000/filters", { params: { departments: selectedDepts.join(',') } })
-        .then(res => {
-          setFilters(prev => ({ ...prev, job_roles: res.data.job_roles }));
-          setSelectedRoles(prev => prev.filter(role => res.data.job_roles.includes(role)));
-        })
-        .catch(() => console.error("Failed to update job roles"));
-    } else {
-      setFilters(prev => ({ ...prev, job_roles: [] }));
-      setSelectedRoles([]);
-    }
+  const departmentRoleMap = {
+  "Research & Development": [
+    "Laboratory Technician",
+    "Research Scientist",
+    "Manufacturing Director",
+    "Research Director",
+    "Healthcare Representative",
+    "Manager"
+  ],
+  "Sales": [
+    "Sales Executive",
+    "Sales Representative",
+    "Manager"
+  ],
+  "Human Resources": [
+    "Human Resources",
+    "Manager"
+  ]
+};
 
-  }, [selectedDepts]);
+useEffect(() => {
+  if (selectedDepts.length === 0) {
+    setSelectedRoles([]);
+    return;
+  }
+
+  const allowedRoles = selectedDepts.flatMap(
+    dept => departmentRoleMap[dept] || []
+  );
+
+  setSelectedRoles(prev =>
+    prev.filter(role => allowedRoles.includes(role))
+  );
+
+  setFilters(prev => ({
+    ...prev,
+    job_roles: Array.from(new Set(allowedRoles))
+  }));
+}, [selectedDepts]);
+
 
   /* ---------------- FETCH DASHBOARD STATS ---------------- */
-  useEffect(() => {
-    if (viewMode === "overview" && selectedDepts.length > 0) {
-      axios.post("http://127.0.0.1:8000/stats", {
-        departments: selectedDepts,
-        job_roles: selectedRoles
-      })
-        .then(res => setOverviewData(res.data))
-        .catch(() => console.error("Stats fetch failed"));
-    }
-  }, [viewMode, selectedDepts, selectedRoles]);
+useEffect(() => {
+  if (
+    viewMode === "overview" &&
+    (selectedDepts.length > 0 || selectedRoles.length > 0)
+  ) {
+    axios.post("http://127.0.0.1:8000/stats", {
+      departments: selectedDepts,
+      job_roles: selectedRoles
+    })
+    .then(res => setOverviewData(res.data))
+    .catch(() => setOverviewData(null));
+  } else {
+    setOverviewData(null);
+  }
+}, [viewMode, selectedDepts, selectedRoles]);
 
   /* ---------------- LOAD EMPLOYEE LIST FROM BACKEND ---------------- */
   useEffect(() => {
@@ -154,7 +185,11 @@ useEffect(() => {
                 </label>
               ))}
               <div className="flex gap-2 mt-4">
-                <button className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200" onClick={() => setSelectedDepts(filters.departments)}>Select All</button>
+                <button className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200" onClick={() => {
+  setSelectedDepts(filters.departments);
+  setSelectedRoles([]);
+}}
+>Select All</button>
                 <button className="text-xs bg-slate-100 text-slate-700 px-2 py-1 rounded hover:bg-slate-200" onClick={() => setSelectedDepts([])}>Remove All</button>
               </div>
             </div>
@@ -314,6 +349,18 @@ useEffect(() => {
       <main className="flex-1 p-8 overflow-y-auto">
 
         {/* -------- OVERVIEW DASHBOARD -------- */}
+        {viewMode === "overview" && !overviewData && (
+  <div className="flex flex-col items-center justify-center h-[70vh] text-slate-400">
+    <div className="text-5xl mb-4">🔍</div>
+    <h2 className="text-xl font-semibold">
+      Select a filter to view analytics
+    </h2>
+    <p className="text-sm mt-2 text-slate-500">
+      Choose at least one department or job role from the left panel
+    </p>
+  </div>
+)}
+
         {viewMode === "overview" && overviewData && (
 
           <>
