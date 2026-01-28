@@ -369,7 +369,7 @@ useEffect(() => {
               {[
                 ["Total Employees", overviewData.kpis.total_employees],
                 ["Attrition Rate", overviewData.kpis.attrition_rate + "%"],
-                ["Avg Satisfaction", overviewData.kpis.avg_satisfaction],
+                ["Avg Satisfaction", `${overviewData.kpis.avg_satisfaction} / 5`],
                 ["High Risk Employees", overviewData.kpis.high_risk_employees],
               ].map(([l, v], i) => {
                 const cardColors = [
