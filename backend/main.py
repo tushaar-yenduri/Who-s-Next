@@ -106,57 +106,78 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     overtime = eval_row.get("OverTime", "No")
     if overtime == "Yes":
         recommendations.append("Reduce overtime hours to improve work-life balance.")
-        key_drivers.append({"factor": "Overtime", "impact": "High"})
+        impact = "High"
+        contribution = 75
     else:
-        key_drivers.append({"factor": "Overtime", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Overtime", "impact": impact, "contribution": contribution})
 
     # Job Satisfaction
     job_sat = eval_row.get("JobSatisfaction", 3)
     if job_sat <= 2:
         recommendations.append(f"Improve job satisfaction from current level {job_sat} to at least 3 through engagement initiatives.")
-        key_drivers.append({"factor": "Job Satisfaction", "impact": "High" if job_sat == 1 else "Medium"})
+        impact = "High" if job_sat == 1 else "Medium"
+        contribution = 75 if impact == "High" else 50
     else:
-        key_drivers.append({"factor": "Job Satisfaction", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Job Satisfaction", "impact": impact, "contribution": contribution})
 
     # Work Life Balance
     wlb = eval_row.get("WorkLifeBalance", 3)
     if wlb <= 2:
         recommendations.append(f"Enhance work-life balance from current level {wlb} to at least 3 with flexible scheduling.")
-        key_drivers.append({"factor": "Work-Life Balance", "impact": "High" if wlb == 1 else "Medium"})
+        impact = "High" if wlb == 1 else "Medium"
+        contribution = 75 if impact == "High" else 50
     else:
-        key_drivers.append({"factor": "Work-Life Balance", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Work-Life Balance", "impact": impact, "contribution": contribution})
 
     # Monthly Income
     income = eval_row.get("MonthlyIncome", 5000)
     if income < 4000:  # Assuming low threshold
         recommendations.append(f"Increase monthly income from ${income} to at least $4000 to boost retention.")
-        key_drivers.append({"factor": "Monthly Income", "impact": "High"})
+        impact = "High"
+        contribution = 75
     else:
-        key_drivers.append({"factor": "Monthly Income", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Monthly Income", "impact": impact, "contribution": contribution})
 
     # Years at Company (Tenure)
     tenure = eval_row.get("YearsAtCompany", 5)
     if tenure > 10:
         recommendations.append(f"Address long tenure of {tenure} years with career development opportunities.")
-        key_drivers.append({"factor": "Years at Company", "impact": "High"})
+        impact = "High"
+        contribution = 75
     else:
-        key_drivers.append({"factor": "Years at Company", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Years at Company", "impact": impact, "contribution": contribution})
 
     # Years with Manager
     years_mgr = eval_row.get("YearsWithCurrManager", 3)
     if years_mgr < 2:
         recommendations.append(f"Improve manager-employee relationship; current tenure with manager is {years_mgr} years.")
-        key_drivers.append({"factor": "Years with Manager", "impact": "High"})
+        impact = "High"
+        contribution = 75
     else:
-        key_drivers.append({"factor": "Years with Manager", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Years with Manager", "impact": impact, "contribution": contribution})
 
     # Recent Promotion (assuming if YearsSinceLastPromotion > 5, it's an issue)
     years_last_promo = eval_row.get("YearsSinceLastPromotion", 2)
     if years_last_promo > 5:
         recommendations.append(f"Provide recent promotion opportunities; last promotion was {years_last_promo} years ago.")
-        key_drivers.append({"factor": "Recent Promotion", "impact": "High"})
+        impact = "High"
+        contribution = 75
     else:
-        key_drivers.append({"factor": "Recent Promotion", "impact": "Low"})
+        impact = "Low"
+        contribution = 25
+    key_drivers.append({"factor": "Recent Promotion", "impact": impact, "contribution": contribution})
 
     return recommendations, key_drivers
 

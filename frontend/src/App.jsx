@@ -534,29 +534,54 @@ useEffect(() => {
             {isLoadingPrediction && (
               <div className="bg-white p-6 rounded-2xl shadow border">
                 <h3 className="text-lg font-bold mb-4">Key Risk Drivers</h3>
-                <div className="animate-pulse space-y-3">
-                  <div className="h-12 bg-slate-200 rounded"></div>
-                  <div className="h-12 bg-slate-200 rounded"></div>
-                  <div className="h-12 bg-slate-200 rounded"></div>
+                <div className="animate-pulse flex items-center justify-center">
+                  <div className="w-full h-64 bg-slate-200 rounded"></div>
                 </div>
               </div>
             )}
-            {predictionResult && !isLoadingPrediction && (
+            {predictionResult && !isLoadingPrediction && predictionResult.keyDrivers && predictionResult.keyDrivers.length > 0 && (
               <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Key Risk Drivers</h3>
-                <div className="space-y-3">
-                  {predictionResult.keyDrivers.map((driver, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                      <span className="font-medium">{driver.factor}</span>
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${driver.impact === 'High' ? 'bg-red-100 text-red-800' :
-                        driver.impact === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                        {driver.impact} Impact
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart
+                    data={predictionResult.keyDrivers}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                    barCategoryGap="20%"
+                    barGap={10}
+                  >
+                    <XAxis dataKey="factor" type="category" angle={-25} textAnchor="end" height={80} />
+                    <YAxis type="number" domain={[0, 100]} />
+                    <Tooltip
+                      formatter={(value, name) => [`${value}%`, 'Contribution']}
+                      labelFormatter={(label) => `${label}`}
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 border rounded shadow">
+                              <p className="font-medium">{data.factor}</p>
+                              <p>Contribution: {data.contribution}%</p>
+                              <p>Impact: {data.impact}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Bar dataKey="contribution" radius={[4, 4, 0, 0]}>
+                      {predictionResult.keyDrivers.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            entry.impact === 'High' ? '#dc2626' : // Red
+                            entry.impact === 'Medium' ? '#f59e0b' : // Orange
+                            '#16a34a' // Green
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             )}
 
