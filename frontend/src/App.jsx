@@ -5,7 +5,7 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 import {
-  User, LayoutDashboard, Filter, Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Search
+  User, LayoutDashboard, Filter, Activity, TrendingUp, AlertTriangle, CheckCircle, XCircle, Search, Menu, X
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
@@ -39,6 +39,7 @@ const App = () => {
   const [predictionResult, setPredictionResult] = useState(null);
   const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const [topRiskEmployees, setTopRiskEmployees] = useState([]);
+  const [sidebarVisible, setSidebarVisible] = useState(true);
 
   /* ---------------- LOAD FILTER OPTIONS ---------------- */
   useEffect(() => {
@@ -142,7 +143,8 @@ useEffect(() => {
     <div className="flex h-screen bg-slate-50 text-slate-900">
 
       {/* -------- SIDEBAR -------- */}
-      <aside className="w-72 bg-white border-r p-6 space-y-8">
+      {sidebarVisible && (
+        <aside className="w-64 bg-white border-r p-4 space-y-6">
         <div>
           <h1 className="text-2xl font-black text-indigo-600 flex gap-2 items-center">
             <Activity /> Who’s Next
@@ -153,14 +155,14 @@ useEffect(() => {
         <div className="space-y-2">
           <button
             onClick={() => setViewMode("overview")}
-            className={`w-full px-4 py-3 rounded-xl font-medium flex gap-2 items-center
+            className={`w-full px-4 py-2 rounded-xl font-medium flex gap-2 items-center
             ${viewMode === "overview" ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100"}`}
           >
             <LayoutDashboard /> Overview
           </button>
           <button
             onClick={() => setViewMode("profile")}
-            className={`w-full px-4 py-3 rounded-xl font-medium flex gap-2 items-center
+            className={`w-full px-4 py-2 rounded-xl font-medium flex gap-2 items-center
             ${viewMode === "profile" ? "bg-indigo-50 text-indigo-700" : "hover:bg-slate-100"}`}
           >
             <User /> Employee Profile
@@ -170,13 +172,13 @@ useEffect(() => {
         {viewMode === "overview" && (
           <>
             <div className="text-xs font-bold text-slate-400 uppercase flex gap-2 items-center">
-              <Filter size={14} /> Filters
+              <Filter size={12} /> Filters
             </div>
 
             <div>
               <h4 className="font-bold mb-2">Departments</h4>
               {filters.departments.map(d => (
-                <label key={d} className="flex gap-2 text-sm">
+                <label key={d} className="flex gap-2 text-xs">
                   <input
                     type="checkbox"
                     checked={selectedDepts.includes(d)}
@@ -200,7 +202,7 @@ useEffect(() => {
                 <h4 className="font-bold mb-2">Job Roles</h4>
                 <div className="max-h-40 overflow-y-auto">
                   {filters.job_roles.map(r => (
-                    <label key={r} className="flex gap-2 text-sm">
+                    <label key={r} className="flex gap-2 text-xs">
                       <input
                         type="checkbox"
                         checked={selectedRoles.includes(r)}
@@ -351,9 +353,16 @@ useEffect(() => {
           </>
         )}
       </aside>
+      )}
 
       {/* -------- MAIN -------- */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className={`flex-1 p-4 overflow-y-auto ${sidebarVisible ? '' : 'ml-0'}`}>
+        <button
+          onClick={() => setSidebarVisible(!sidebarVisible)}
+          className="mb-4 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          {sidebarVisible ? <X size={20} /> : <Menu size={20} />}
+        </button>
 
         {/* -------- OVERVIEW DASHBOARD -------- */}
         {viewMode === "overview" && !overviewData && (
@@ -372,7 +381,8 @@ useEffect(() => {
 
           <>
             {/* KPIs */}
-            <div className="grid grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-4 gap-3 mb-12">
+              <hr className="border-slate-200 col-span-4 -mb-4" />
               {[
                 { label: "Total Employees", value: overviewData.kpis.total_employees, icon: User },
                 { label: "Attrition Rate", value: overviewData.kpis.attrition_rate + "%", icon: TrendingUp },
@@ -387,7 +397,7 @@ useEffect(() => {
                 ];
                 const IconComponent = item.icon;
                 return (
-                  <div key={i} className={`${cardColors[i].bg} p-6 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`} title={`${item.label}: ${item.value} - ${item.label === 'Total Employees' ? 'Total number of employees in the selected filters' : item.label === 'Attrition Rate' ? 'Percentage of employees who left the company' : item.label === 'Avg Satisfaction' ? 'Average job satisfaction score out of 5' : 'Number of employees at high risk of attrition'}`}>
+                  <div key={i} className={`${cardColors[i].bg} p-4 rounded-2xl shadow border hover:scale-105 hover:shadow-xl transition-all duration-200 cursor-pointer`} title={`${item.label}: ${item.value} - ${item.label === 'Total Employees' ? 'Total number of employees in the selected filters' : item.label === 'Attrition Rate' ? 'Percentage of employees who left the company' : item.label === 'Avg Satisfaction' ? 'Average job satisfaction score out of 5' : 'Number of employees at high risk of attrition'}`}>
                     <div className={`flex items-center gap-2 mb-3`}>
                       <IconComponent className={`text-lg ${cardColors[i].label}`} />
                       <div className={`text-xs ${cardColors[i].label} uppercase font-medium`}>{item.label}</div>
@@ -401,11 +411,11 @@ useEffect(() => {
             {/* Top Risk Employees Carousel */}
             {Array.isArray(topRiskEmployees) && topRiskEmployees.length > 0 && (
 
-              <div className="mb-8">
+              <div className="mb-12">
                 <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4">
+                <div className="flex gap-4 overflow-x-auto pb-4 pr-4">
                   {topRiskEmployees.map((emp, index) => (
-                    <div key={emp.employee_id} className="bg-white p-4 rounded-2xl shadow border min-w-64 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
+                    <div key={emp.employee_id} className="bg-white p-3 rounded-2xl shadow border min-w-44 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-slate-500">#{index + 1}</span>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -421,7 +431,7 @@ useEffect(() => {
                       }}>
                         {emp.risk_probability}%
                       </div>
-                      <div className="space-y-1 text-sm">
+                      <div className="space-y-0.5 text-xs">
                         <div><strong>ID:</strong> {emp.employee_id}</div>
                         <div><strong>Department:</strong> {emp.department}</div>
                         <div><strong>Role:</strong> {emp.job_role}</div>
@@ -432,11 +442,12 @@ useEffect(() => {
                     </div>
                   ))}
                 </div>
+                <hr className="border-slate-200 mt-4" />
               </div>
             )}
 
             {/* CHART GRID */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-2 gap-3">
 
               {/* Attrition by Department */}
               <ChartCard title="Attrition by Department">
@@ -753,8 +764,8 @@ const SemiCircularGauge = ({ riskPercentage }) => {
 };
 
 const ChartCard = ({ title, children }) => (
-  <div className="bg-white p-6 rounded-2xl shadow border flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
-    <h4 className="font-bold mb-4">{title}</h4>
+  <div className="bg-white p-6 rounded-2xl shadow border-slate-200 flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
+    <h4 className="text-base font-semibold mb-4">{title}</h4>
     <div className="flex-1">
       {children}
     </div>
