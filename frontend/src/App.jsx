@@ -11,6 +11,28 @@ import {
 /* ---------------- CONFIG ---------------- */
 const COLORS = ["#ef4444", "#6366f1", "#10b981", "#f59e0b", "#8b5cf6"];
 
+const getChartColor = (entry, index, data, title) => {
+  if (title && title.includes("Job Satisfaction")) {
+    const val = parseInt(entry.value);
+    if (val <= 2) return '#ef4444'; // red
+    if (val >= 4) return '#10b981'; // green
+    return '#f59e0b'; // yellow
+  }
+  if (title && title.includes("Overtime")) {
+    return entry.value === 'Yes' ? '#ef4444' : '#10b981';
+  }
+  // for others, based on count
+  const counts = data.map(d => d.count);
+  const max = Math.max(...counts);
+  const min = Math.min(...counts);
+  const range = max - min;
+  if (range === 0) return '#6366f1'; // blue
+  const normalized = (entry.count - min) / range;
+  if (normalized > 0.66) return '#ef4444'; // red
+  if (normalized < 0.33) return '#10b981'; // green
+  return '#f59e0b'; // yellow
+};
+
 
 
 /* ---------------- APP ---------------- */
@@ -767,39 +789,47 @@ const ChartCard = ({ title, children }) => (
   <div className="bg-white p-6 rounded-2xl shadow border-slate-200 flex flex-col hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
     <h4 className="text-base font-semibold mb-4">{title}</h4>
     <div className="flex-1">
-      {children}
+      {React.cloneElement(children, { title })}
     </div>
   </div>
 );
 
-const VerticalBar = ({ data }) => (
+const VerticalBar = ({ data, title }) => (
   <ResponsiveContainer width="100%" height={280}>
     <BarChart data={data} layout="vertical">
       <XAxis type="number" hide />
       <YAxis dataKey="value" type="category" width={150} />
       <Tooltip />
-      <Bar dataKey="count" fill="#ef4444" radius={[0, 6, 6, 0]} />
+      <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+        {data.map((entry, index) => (
+          <Cell key={`cell-${index}`} fill={getChartColor(entry, index, data, title)} />
+        ))}
+      </Bar>
     </BarChart>
   </ResponsiveContainer>
 );
 
-const BarSimple = ({ data }) => (
+const BarSimple = ({ data, title }) => (
   <ResponsiveContainer width="100%" height={280}>
     <BarChart data={data}>
       <XAxis dataKey="value" />
       <YAxis />
       <Tooltip />
-      <Bar dataKey="count" fill="#6366f1" radius={[6, 6, 0, 0]} />
+      <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+        {data.map((entry, index) => (
+          <Cell key={`cell-${index}`} fill={getChartColor(entry, index, data, title)} />
+        ))}
+      </Bar>
     </BarChart>
   </ResponsiveContainer>
 );
 
-const Donut = ({ data }) => (
+const Donut = ({ data, title }) => (
   <ResponsiveContainer width="100%" height={280}>
     <PieChart>
       <Pie data={data} dataKey="count" nameKey="value" innerRadius={70} outerRadius={100}>
-        {data.map((_, i) => (
-          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+        {data.map((entry, i) => (
+          <Cell key={i} fill={getChartColor(entry, i, data, title)} />
         ))}
       </Pie>
       <Tooltip />
