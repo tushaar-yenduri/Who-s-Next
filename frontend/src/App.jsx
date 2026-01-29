@@ -331,7 +331,8 @@ useEffect(() => {
                         riskLabel: res.data.risk_level,
                         modelUsed: res.data.model_used,
                         keyDrivers: res.data.key_drivers,
-                        recommendations: res.data.recommendations
+                        recommendations: res.data.recommendations,
+                        modelMetrics: res.data.model_metrics
                       });
                       setIsLoadingPrediction(false);
                     })
@@ -522,10 +523,88 @@ useEffect(() => {
             {predictionResult && !isLoadingPrediction && (
               <div className="bg-white p-6 rounded-2xl shadow border hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out">
                 <h3 className="text-lg font-bold mb-4">Attrition Risk Assessment</h3>
-                <div className="flex flex-col items-center space-y-2">
-                  <SemiCircularGauge riskPercentage={predictionResult.riskPercentage} />
-                  <div className="text-lg font-semibold">{predictionResult.riskLabel} Risk</div>
-                  <div className="text-sm text-slate-500">Model: {predictionResult.modelUsed}</div>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  {/* Left: Risk Gauge (40%) */}
+                  <div className="md:col-span-2 flex flex-col items-center space-y-2">
+                    <SemiCircularGauge riskPercentage={predictionResult.riskPercentage} />
+                    <div className="text-lg font-semibold">{predictionResult.riskLabel} Risk</div>
+                    <div className="text-sm text-slate-500">Model: {predictionResult.modelUsed}</div>
+                  </div>
+                  {/* Right: Decision Context (60%) */}
+                  <div className="md:col-span-3 space-y-4">
+                    {/* Risk Band Explanation */}
+                    <div>
+                      <div className="text-sm font-medium text-slate-700 mb-1">Risk Band Explanation</div>
+                      <div className="text-sm text-slate-600">
+                        {predictionResult.riskLabel === 'High' ? 'Employees in this risk band typically show early signs of disengagement.' :
+                         predictionResult.riskLabel === 'Medium' ? 'Employees in this risk band may be considering options but are not yet disengaged.' :
+                         'Employees in this risk band are generally satisfied and committed.'}
+                      </div>
+                    </div>
+                    {/* Top Risk Drivers Summary */}
+                    {predictionResult.keyDrivers && predictionResult.keyDrivers.length > 0 && (
+                      <div>
+                        <div className="text-sm font-medium text-slate-700 mb-1">Top Risk Drivers</div>
+                        <div className="space-y-1">
+                          {predictionResult.keyDrivers
+                            .sort((a, b) => b.contribution - a.contribution)
+                            .slice(0, 2)
+                            .map((driver, index) => (
+                              <div key={index} className="text-sm text-slate-600">
+                                {driver.factor} ({driver.impact} Impact)
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Model Reliability */}
+                    {predictionResult.modelMetrics && (
+                      <div>
+                        <div className="text-sm font-medium text-slate-700 mb-2">Model Reliability</div>
+                        <div className="space-y-2">
+                          {/* Accuracy */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-600 w-16" title="Percentage of correct predictions made by the model">Accuracy</span>
+                            <div className="flex-1 bg-slate-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${predictionResult.modelMetrics.accuracy >= 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                style={{ width: `${predictionResult.modelMetrics.accuracy * 100}%` }}
+                              ></div>
+                            </div>
+                            <span className={`text-xs font-medium ${predictionResult.modelMetrics.accuracy >= 0.8 ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {Math.round(predictionResult.modelMetrics.accuracy * 100)}%
+                            </span>
+                          </div>
+                          {/* Recall */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-600 w-16" title="Percentage of actual attrition cases correctly identified">Recall</span>
+                            <div className="flex-1 bg-slate-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${predictionResult.modelMetrics.recall >= 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                style={{ width: `${predictionResult.modelMetrics.recall * 100}%` }}
+                              ></div>
+                            </div>
+                            <span className={`text-xs font-medium ${predictionResult.modelMetrics.recall >= 0.8 ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {Math.round(predictionResult.modelMetrics.recall * 100)}%
+                            </span>
+                          </div>
+                          {/* AUC */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-600 w-16" title="Area Under the Curve - measures model's ability to distinguish between classes (0-1 scale)">AUC</span>
+                            <div className="flex-1 bg-slate-200 rounded-full h-2">
+                              <div
+                                className={`h-2 rounded-full ${predictionResult.modelMetrics.auc >= 0.8 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                style={{ width: `${predictionResult.modelMetrics.auc * 100}%` }}
+                              ></div>
+                            </div>
+                            <span className={`text-xs font-medium ${predictionResult.modelMetrics.auc >= 0.8 ? 'text-green-600' : 'text-yellow-600'}`}>
+                              {predictionResult.modelMetrics.auc.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Union
 import pandas as pd
 import numpy as np
 import joblib
+from sklearn.metrics import accuracy_score, recall_score, roc_auc_score
 
 # --------------------------------------------------
 # APP SETUP
@@ -35,6 +36,40 @@ models = {
 rf_model = joblib.load("model_rf_best.joblib")
 feature_columns = joblib.load("model_feature_columns.joblib")
 TOP_RISK_CACHE = None
+
+# --------------------------------------------------
+# COMPUTE MODEL METRICS
+# --------------------------------------------------
+def compute_model_metrics():
+    # Prepare data
+    X = pd.get_dummies(df.drop("Attrition", axis=1))
+    X = X.reindex(columns=feature_columns, fill_value=0)
+    y = df["Attrition"].map({"Yes": 1, "No": 0})
+
+    metrics = {}
+    for name, model in models.items():
+        y_pred = model.predict(X)
+        y_pred_proba = model.predict_proba(X)[:, 1]
+        accuracy = accuracy_score(y, y_pred)
+        recall = recall_score(y, y_pred, pos_label=1)
+        auc = roc_auc_score(y, y_pred_proba)
+        metrics[name] = {
+            "accuracy": round(accuracy, 2),
+            "recall": round(recall, 2),
+            "auc": round(auc, 2)
+        }
+    # For ensemble, average the metrics
+    ensemble_acc = np.mean([metrics[m]["accuracy"] for m in metrics])
+    ensemble_recall = np.mean([metrics[m]["recall"] for m in metrics])
+    ensemble_auc = np.mean([metrics[m]["auc"] for m in metrics])
+    metrics["ensemble"] = {
+        "accuracy": round(ensemble_acc, 2),
+        "recall": round(ensemble_recall, 2),
+        "auc": round(ensemble_auc, 2)
+    }
+    return metrics
+
+MODEL_METRICS = compute_model_metrics()
 
 
 # --------------------------------------------------
@@ -386,6 +421,9 @@ def predict_attrition(req: PredictRequest):
     # Generate recommendations and key drivers
     recommendations, key_drivers = generate_recommendations(row, req.what_if)
 
+    metrics_key = req.model_name.lower().replace(" ", "_")
+    selected_metrics = MODEL_METRICS.get(metrics_key, MODEL_METRICS["random_forest"])
+
     return {
         "employee_id": req.employee_id,
         "risk_probability": round(float(risk_prob) * 100, 2),
@@ -393,4 +431,5 @@ def predict_attrition(req: PredictRequest):
         "model_used": req.model_name,
         "key_drivers": key_drivers,
         "recommendations": recommendations,
+        "model_metrics": selected_metrics,
     }

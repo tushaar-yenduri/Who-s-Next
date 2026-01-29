@@ -1,8 +1,12 @@
-# TODO: Update Risk Driver Contributions Chart
+# TODO: Redesign Attrition Risk Assessment Card
 
-- [x] Change BarChart layout from "vertical" to "horizontal" for vertical bars
-- [x] Swap XAxis and YAxis: XAxis for factor (category), YAxis for contribution (number, domain [0,100])
-- [x] Add barCategoryGap and barGap to BarChart for increased spacing
-- [x] Rotate X-axis labels by -25 degrees
-- [x] Verify color mapping (High: red, Medium: amber, Low: green) is preserved
-- [x] Ensure rounded bar corners and subtle tooltip styling remain
+## Tasks
+- [x] Modify the Attrition Risk Assessment card in frontend/src/App.jsx to use a 2-column layout (40% left for gauge, 60% right for context)
+- [x] Keep semi-circular gauge as-is, center percentage text inside arc
+- [x] Below gauge: Display Risk Level and Model used
+- [x] Right section: Add Risk Comparison block (Employee Risk, Department/Company averages if available) - Skipped as backend doesn't provide averages
+- [x] Right section: Add Risk Band Explanation (short sentence based on risk level)
+- [x] Right section: Add Top Risk Drivers Summary (Top 2 from key_drivers)
+- [x] Add subtle hover elevation to the card (already present)
+- [x] Ensure responsive stacking on smaller screens (gauge on top, context below)
+- [x] If comparison data unavailable, gracefully hide the subsection
