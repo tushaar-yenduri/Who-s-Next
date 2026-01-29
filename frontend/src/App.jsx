@@ -413,7 +413,7 @@ useEffect(() => {
 
               <div className="mb-12">
                 <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 pr-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-4">
                   {topRiskEmployees.map((emp, index) => (
                     <div key={emp.employee_id} className="bg-white p-3 rounded-2xl shadow border min-w-44 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
                       <div className="flex items-center justify-between mb-2">
