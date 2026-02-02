@@ -127,6 +127,22 @@ def build_feature_vector(row: pd.Series):
     X = X.reindex(columns=feature_columns, fill_value=0)
     return X
 
+def get_contribution(feature, value, df):
+    if feature == "OverTime":
+        val_num = 1 if value == "Yes" else 0
+        percentile = (df[feature].map({"No": 0, "Yes": 1}) <= val_num).mean() * 100
+        return round(percentile, 1)
+    elif feature in ["JobSatisfaction", "WorkLifeBalance", "MonthlyIncome", "YearsWithCurrManager"]:
+        # Lower is worse
+        percentile = (df[feature] <= value).mean() * 100
+        return round(100 - percentile, 1)
+    elif feature in ["YearsAtCompany", "YearsSinceLastPromotion"]:
+        # Higher is worse
+        percentile = (df[feature] <= value).mean() * 100
+        return round(percentile, 1)
+    else:
+        return 25.0  # default
+
 def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]):
     recommendations = []
     key_drivers = []
@@ -142,10 +158,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if overtime == "Yes":
         recommendations.append("Reduce overtime hours to improve work-life balance.")
         impact = "High"
-        contribution = 75
+        contribution = get_contribution("OverTime", overtime, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("OverTime", overtime, df)
     key_drivers.append({"factor": "Overtime", "impact": impact, "contribution": contribution})
 
     # Job Satisfaction
@@ -153,10 +169,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if job_sat <= 2:
         recommendations.append(f"Improve job satisfaction from current level {job_sat} to at least 3 through engagement initiatives.")
         impact = "High" if job_sat == 1 else "Medium"
-        contribution = 75 if impact == "High" else 50
+        contribution = get_contribution("JobSatisfaction", job_sat, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("JobSatisfaction", job_sat, df)
     key_drivers.append({"factor": "Job Satisfaction", "impact": impact, "contribution": contribution})
 
     # Work Life Balance
@@ -164,10 +180,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if wlb <= 2:
         recommendations.append(f"Enhance work-life balance from current level {wlb} to at least 3 with flexible scheduling.")
         impact = "High" if wlb == 1 else "Medium"
-        contribution = 75 if impact == "High" else 50
+        contribution = get_contribution("WorkLifeBalance", wlb, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("WorkLifeBalance", wlb, df)
     key_drivers.append({"factor": "Work-Life Balance", "impact": impact, "contribution": contribution})
 
     # Monthly Income
@@ -175,10 +191,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if income < 4000:  # Assuming low threshold
         recommendations.append(f"Increase monthly income from ${income} to at least $4000 to boost retention.")
         impact = "High"
-        contribution = 75
+        contribution = get_contribution("MonthlyIncome", income, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("MonthlyIncome", income, df)
     key_drivers.append({"factor": "Monthly Income", "impact": impact, "contribution": contribution})
 
     # Years at Company (Tenure)
@@ -186,10 +202,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if tenure > 10:
         recommendations.append(f"Address long tenure of {tenure} years with career development opportunities.")
         impact = "High"
-        contribution = 75
+        contribution = get_contribution("YearsAtCompany", tenure, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("YearsAtCompany", tenure, df)
     key_drivers.append({"factor": "Years at Company", "impact": impact, "contribution": contribution})
 
     # Years with Manager
@@ -197,10 +213,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if years_mgr < 2:
         recommendations.append(f"Improve manager-employee relationship; current tenure with manager is {years_mgr} years.")
         impact = "High"
-        contribution = 75
+        contribution = get_contribution("YearsWithCurrManager", years_mgr, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("YearsWithCurrManager", years_mgr, df)
     key_drivers.append({"factor": "Years with Manager", "impact": impact, "contribution": contribution})
 
     # Recent Promotion (assuming if YearsSinceLastPromotion > 5, it's an issue)
@@ -208,10 +224,10 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
     if years_last_promo > 5:
         recommendations.append(f"Provide recent promotion opportunities; last promotion was {years_last_promo} years ago.")
         impact = "High"
-        contribution = 75
+        contribution = get_contribution("YearsSinceLastPromotion", years_last_promo, df)
     else:
         impact = "Low"
-        contribution = 25
+        contribution = get_contribution("YearsSinceLastPromotion", years_last_promo, df)
     key_drivers.append({"factor": "Recent Promotion", "impact": impact, "contribution": contribution})
 
     return recommendations, key_drivers
