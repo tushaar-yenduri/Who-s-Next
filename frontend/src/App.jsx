@@ -11,26 +11,37 @@ import {
 /* ---------------- CONFIG ---------------- */
 const COLORS = ["#ef4444", "#6366f1", "#10b981", "#f59e0b", "#8b5cf6"];
 
-const getChartColor = (entry, index, data, title) => {
+const hexToRgba = (hex, opacity) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+};
+
+const getChartColor = (entry, index, data, title, opacity = 0.85) => {
+  let color;
   if (title && title.includes("Job Satisfaction")) {
     const val = parseInt(entry.value);
-    if (val <= 2) return '#ef4444'; // red
-    if (val >= 4) return '#10b981'; // green
-    return '#f59e0b'; // yellow
+    if (val <= 2) color = '#ef4444'; // red
+    else if (val >= 4) color = '#10b981'; // green
+    else color = '#f59e0b'; // yellow
+  } else if (title && title.includes("Overtime")) {
+    color = entry.value === 'Yes' ? '#ef4444' : '#10b981';
+  } else {
+    // for others, based on count
+    const counts = data.map(d => d.count);
+    const max = Math.max(...counts);
+    const min = Math.min(...counts);
+    const range = max - min;
+    if (range === 0) color = '#6366f1'; // blue
+    else {
+      const normalized = (entry.count - min) / range;
+      if (normalized > 0.66) color = '#ef4444'; // red
+      else if (normalized < 0.33) color = '#10b981'; // green
+      else color = '#f59e0b'; // yellow
+    }
   }
-  if (title && title.includes("Overtime")) {
-    return entry.value === 'Yes' ? '#ef4444' : '#10b981';
-  }
-  // for others, based on count
-  const counts = data.map(d => d.count);
-  const max = Math.max(...counts);
-  const min = Math.min(...counts);
-  const range = max - min;
-  if (range === 0) return '#6366f1'; // blue
-  const normalized = (entry.count - min) / range;
-  if (normalized > 0.66) return '#ef4444'; // red
-  if (normalized < 0.33) return '#10b981'; // green
-  return '#f59e0b'; // yellow
+  return hexToRgba(color, opacity);
 };
 
 
@@ -794,47 +805,74 @@ const ChartCard = ({ title, children }) => (
   </div>
 );
 
-const VerticalBar = ({ data, title }) => (
-  <ResponsiveContainer width="100%" height={280}>
-    <BarChart data={data} layout="vertical">
-      <XAxis type="number" hide />
-      <YAxis dataKey="value" type="category" width={150} />
-      <Tooltip />
-      <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-        {data.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={getChartColor(entry, index, data, title)} />
-        ))}
-      </Bar>
-    </BarChart>
-  </ResponsiveContainer>
-);
+const VerticalBar = ({ data, title }) => {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
 
-const BarSimple = ({ data, title }) => (
-  <ResponsiveContainer width="100%" height={280}>
-    <BarChart data={data}>
-      <XAxis dataKey="value" />
-      <YAxis />
-      <Tooltip />
-      <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-        {data.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={getChartColor(entry, index, data, title)} />
-        ))}
-      </Bar>
-    </BarChart>
-  </ResponsiveContainer>
-);
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data} layout="vertical">
+        <XAxis type="number" hide />
+        <YAxis dataKey="value" type="category" width={150} />
+        <Tooltip />
+        <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+          {data.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={getChartColor(entry, index, data, title, hoveredIndex === index ? 1 : 0.85)}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
 
-const Donut = ({ data, title }) => (
-  <ResponsiveContainer width="100%" height={280}>
-    <PieChart>
-      <Pie data={data} dataKey="count" nameKey="value" innerRadius={70} outerRadius={100}>
-        {data.map((entry, i) => (
-          <Cell key={i} fill={getChartColor(entry, i, data, title)} />
-        ))}
-      </Pie>
-      <Tooltip />
-    </PieChart>
-  </ResponsiveContainer>
-);
+const BarSimple = ({ data, title }) => {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data}>
+        <XAxis dataKey="value" />
+        <YAxis />
+        <Tooltip />
+        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+          {data.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={getChartColor(entry, index, data, title, hoveredIndex === index ? 1 : 0.85)}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+};
+
+const Donut = ({ data, title }) => {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <PieChart>
+        <Pie data={data} dataKey="count" nameKey="value" innerRadius={70} outerRadius={100}>
+          {data.map((entry, i) => (
+            <Cell
+              key={i}
+              fill={getChartColor(entry, i, data, title, hoveredIndex === i ? 1 : 0.85)}
+              onMouseEnter={() => setHoveredIndex(i)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            />
+          ))}
+        </Pie>
+        <Tooltip />
+      </PieChart>
+    </ResponsiveContainer>
+  );
+};
 
 export default App;
