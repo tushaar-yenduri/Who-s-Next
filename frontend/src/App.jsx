@@ -72,6 +72,7 @@ const App = () => {
   const [predictionResult, setPredictionResult] = useState(null);
   const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
   const [topRiskEmployees, setTopRiskEmployees] = useState([]);
+  const [isLoadingTopRisk, setIsLoadingTopRisk] = useState(true);
   const [sidebarVisible, setSidebarVisible] = useState(true);
 
   /* ---------------- LOAD FILTER OPTIONS ---------------- */
@@ -155,12 +156,15 @@ useEffect(() => {
 
   /* ---------------- FETCH TOP RISK EMPLOYEES ---------------- */
 useEffect(() => {
+  setIsLoadingTopRisk(true);
   axios.get("http://127.0.0.1:8000/top_risk_employees")
     .then(res => {
       setTopRiskEmployees(res.data);
+      setIsLoadingTopRisk(false);
     })
     .catch(() => {
       setTopRiskEmployees([]);
+      setIsLoadingTopRisk(false);
     });
 }, []); // 🔴 EMPTY dependency array
 
@@ -173,11 +177,11 @@ useEffect(() => {
 
   /* ---------------- UI ---------------- */
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900">
+    <div className="flex bg-slate-50 text-slate-900">
 
       {/* -------- SIDEBAR -------- */}
       {sidebarVisible && (
-        <aside className="w-64 bg-white border-r p-4 space-y-6">
+        <aside className="w-64 bg-white border-r p-4 space-y-6 overflow-y-auto">
         <div>
           <h1 className="text-2xl font-black text-indigo-600 flex gap-2 items-center">
             <Activity /> Who’s Next
@@ -442,38 +446,58 @@ useEffect(() => {
             </div>
 
             {/* Top Risk Employees Carousel */}
-            {Array.isArray(topRiskEmployees) && topRiskEmployees.length > 0 && (
-
+            {(isLoadingTopRisk || (Array.isArray(topRiskEmployees) && topRiskEmployees.length > 0)) && (
               <div className="mb-12">
                 <h3 className="text-lg font-bold mb-4">Top 5 High-Risk Employees</h3>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-4">
-                  {topRiskEmployees.map((emp, index) => (
-                    <div key={emp.employee_id} className="bg-white p-3 rounded-2xl shadow border min-w-44 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-semibold text-slate-500">#{index + 1}</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          emp.risk_level === 'High' ? 'bg-red-100 text-red-800' :
-                          emp.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {emp.risk_level} Risk
-                        </span>
+                  {isLoadingTopRisk ? (
+                    // Skeleton cards
+                    Array.from({ length: 5 }).map((_, index) => (
+                      <div key={index} className="bg-slate-200 p-3 rounded-2xl shadow border min-w-44 flex-shrink-0 animate-pulse">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="w-6 h-4 bg-slate-300 rounded"></div>
+                          <div className="w-16 h-5 bg-slate-300 rounded"></div>
+                        </div>
+                        <div className="w-12 h-8 bg-slate-300 rounded mb-2"></div>
+                        <div className="space-y-1">
+                          <div className="w-full h-3 bg-slate-300 rounded"></div>
+                          <div className="w-3/4 h-3 bg-slate-300 rounded"></div>
+                          <div className="w-5/6 h-3 bg-slate-300 rounded"></div>
+                          <div className="w-2/3 h-3 bg-slate-300 rounded"></div>
+                          <div className="w-4/5 h-3 bg-slate-300 rounded"></div>
+                          <div className="w-3/5 h-3 bg-slate-300 rounded"></div>
+                        </div>
                       </div>
-                      <div className="text-2xl font-black mb-2" style={{
-                        color: emp.risk_probability > 70 ? '#dc2626' : emp.risk_probability > 40 ? '#d97706' : '#16a34a'
-                      }}>
-                        {emp.risk_probability}%
+                    ))
+                  ) : (
+                    topRiskEmployees.map((emp, index) => (
+                      <div key={emp.employee_id} className="bg-white p-3 rounded-2xl shadow border min-w-44 flex-shrink-0 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 ease-in-out" title={`Employee ${emp.employee_id}: ${emp.risk_probability}% risk - ${emp.job_role} in ${emp.department}, ${emp.years_at_company} years tenure, $${emp.monthly_income.toLocaleString()} monthly income`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-slate-500">#{index + 1}</span>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            emp.risk_level === 'High' ? 'bg-red-100 text-red-800' :
+                            emp.risk_level === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {emp.risk_level} Risk
+                          </span>
+                        </div>
+                        <div className="text-2xl font-black mb-2" style={{
+                          color: emp.risk_probability > 70 ? '#dc2626' : emp.risk_probability > 40 ? '#d97706' : '#16a34a'
+                        }}>
+                          {emp.risk_probability}%
+                        </div>
+                        <div className="space-y-0.5 text-xs">
+                          <div><strong>ID:</strong> {emp.employee_id}</div>
+                          <div><strong>Department:</strong> {emp.department}</div>
+                          <div><strong>Role:</strong> {emp.job_role}</div>
+                          <div><strong>Level:</strong> {emp.job_level}</div>
+                          <div><strong>Tenure:</strong> {emp.years_at_company} years</div>
+                          <div><strong>Income:</strong> ${emp.monthly_income.toLocaleString()}</div>
+                        </div>
                       </div>
-                      <div className="space-y-0.5 text-xs">
-                        <div><strong>ID:</strong> {emp.employee_id}</div>
-                        <div><strong>Department:</strong> {emp.department}</div>
-                        <div><strong>Role:</strong> {emp.job_role}</div>
-                        <div><strong>Level:</strong> {emp.job_level}</div>
-                        <div><strong>Tenure:</strong> {emp.years_at_company} years</div>
-                        <div><strong>Income:</strong> ${emp.monthly_income.toLocaleString()}</div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <hr className="border-slate-200 mt-4" />
               </div>
