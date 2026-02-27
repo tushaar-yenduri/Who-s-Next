@@ -5,7 +5,15 @@ from typing import List, Optional, Dict, Union
 import pandas as pd
 import numpy as np
 import joblib
+import os
+import json
+from google import genai
 from sklearn.metrics import accuracy_score, recall_score, roc_auc_score
+
+# Initialize the modern Google GenAI client
+# It will automatically look for the GEMINI_API_KEY environment variable.
+# For a quick test, you can do: genai.Client(api_key="YOUR_KEY_HERE")
+gemini_client = genai.Client(api_key="AIzaSyA_Id5jmN0gnnuS6oi2HwKmlF6ErxEUATQ")
 
 # --------------------------------------------------
 # APP SETUP
@@ -118,9 +126,6 @@ def attrition_agg(data: pd.DataFrame, col: str):
         .to_dict("records")
     )
 
-
-
-
 def build_feature_vector(row: pd.Series):
     X = pd.DataFrame([row])
     X = pd.get_dummies(X)
@@ -232,9 +237,6 @@ def generate_recommendations(row: pd.Series, what_if: Dict[str, Union[str, int]]
 
     return recommendations, key_drivers
 
-
-
-
 # --------------------------------------------------
 # MAIN DASHBOARD ENDPOINT
 # --------------------------------------------------
@@ -265,7 +267,6 @@ def compute_top_risk_employees(limit=5):
 
     risk_scores.sort(key=lambda x: x["risk_probability"], reverse=True)
     return risk_scores[:limit]
-TOP_RISK_CACHE = None
 
 @app.post("/stats")
 def get_dashboard_stats(filters: StatsFilter):
@@ -395,7 +396,7 @@ def get_top_risk_employees(limit: int = 5):
 
 
 # --------------------------------------------------
-# ML PREDICTION (REAL)
+# ML PREDICTION (REAL) + GEMINI AI RECOMMENDATIONS
 # --------------------------------------------------
 @app.post("/predict")
 def predict_attrition(req: PredictRequest):
@@ -434,9 +435,36 @@ def predict_attrition(req: PredictRequest):
     else:
         risk_level = "Low"
 
-    # Generate recommendations and key drivers
-    recommendations, key_drivers = generate_recommendations(row, req.what_if)
+    # 1. Generate key drivers (ignores rule-based recommendations array)
+    _, key_drivers = generate_recommendations(row, req.what_if)
 
+    # 2. Build Prompt for Gemini
+    prompt = f"""
+    You are an HR Analytics expert. An employee (ID: {req.employee_id}) has an attrition risk probability of {round(float(risk_prob) * 100, 2)}% (Risk Level: {risk_level}).
+    
+    Here are the specific risk drivers and their impact levels calculated by our ML model:
+    {json.dumps(key_drivers)}
+
+    Based on these specific drivers and the overall risk level, provide 3 to 4 short, highly actionable recommendations for the manager to retain this employee.
+    Respond STRICTLY with a valid JSON array of strings. Example: ["Recommendation 1", "Recommendation 2"]
+    """
+
+    # 3. Call the modern Gemini 2.5 API
+    try:
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+            }
+        )
+        llm_recommendations = json.loads(response.text)
+        
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        llm_recommendations = ["Could not generate AI recommendations at this time. Please check system logs."]
+
+    # 4. Grab model metrics for UI
     metrics_key = req.model_name.lower().replace(" ", "_")
     selected_metrics = MODEL_METRICS.get(metrics_key, MODEL_METRICS["random_forest"])
 
@@ -446,6 +474,6 @@ def predict_attrition(req: PredictRequest):
         "risk_level": risk_level,
         "model_used": req.model_name,
         "key_drivers": key_drivers,
-        "recommendations": recommendations,
+        "recommendations": llm_recommendations,
         "model_metrics": selected_metrics,
     }
